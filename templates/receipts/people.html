@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Personen{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Personen</h1>
+    <p>Aktive Personen können neu zugeordnet werden. Gelöschte Personen bleiben in alten Belegen erhalten.</p>
+  </div>
+</div>
+
+<form method="post" class="edit-form compact">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="add">
+  <label>Neue Person
+    <input name="name" placeholder="Name">
+  </label>
+  <button class="button primary add-person-button" type="submit">
+    {% include "includes/icon.html" with name="user-plus" %}
+    Anlegen
+  </button>
+</form>
+
+<form method="post" class="edit-form" enctype="multipart/form-data">
+  {% csrf_token %}
+  <div class="section-head">
+    <h2>Aktuelle Personen</h2>
+    <button class="button primary" type="submit" name="action" value="save">
+      {% include "includes/icon.html" with name="save" %}
+      Speichern
+    </button>
+  </div>
+  <div class="table-wrap">
+    <table class="people-table">
+      <thead>
+        <tr>
+          <th>Avatar</th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Aktiv</th>
+          <th>Aktion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for person in active_people %}
+          <tr>
+            <td class="avatar-cell">
+              <span class="avatar-cell-controls">
+                {% include "includes/person_avatar.html" with person=person %}
+                <button class="button secondary small avatar-open-button" type="button" data-avatar-open="avatar-dialog-{{ person.id }}">Ändern</button>
+              </span>
+              <dialog class="avatar-dialog" id="avatar-dialog-{{ person.id }}">
+                <div class="avatar-dialog-head">
+                  <div>
+                    <h3>Avatar für {{ person.name }}</h3>
+                    <p>Ein Tier auswählen oder ein eigenes Bild hochladen.</p>
+                  </div>
+                  <button class="button secondary small" type="button" data-avatar-close>Schließen</button>
+                </div>
+                <div class="avatar-picker" data-avatar-picker data-person-id="{{ person.id }}" data-person-name="{{ person.name }}">
+                  <label class="avatar-option avatar-initials-option" title="Initialen">
+                    <input type="radio" name="avatar-choice-{{ person.id }}" value="initials" aria-label="Initialen" {% if person.avatar_choice == "initials" %}checked{% endif %}>
+                    <span class="person-avatar person-avatar-initials" style="background: {{ person.avatar_color }}">{{ person.avatar_initials }}</span>
+                  </label>
+                  {% static "images/avatars/" as avatar_base %}
+                  {% for preset in avatar_presets %}
+                    <label class="avatar-option avatar-animal-option{% if preset.owner_id and preset.owner_id != person.id %} avatar-option-unavailable{% endif %}" title="{% if preset.owner_id and preset.owner_id != person.id %}Bereits von {{ preset.owner_name }} verwendet{% else %}{{ preset.label }}{% endif %}">
+                      <input type="radio" name="avatar-choice-{{ person.id }}" value="{{ preset.value }}" {% if person.avatar_choice == preset.value %}checked{% endif %} {% if preset.owner_id and preset.owner_id != person.id %}disabled{% endif %}>
+                      <img class="person-avatar animal-avatar" src="{{ avatar_base }}{{ preset.filename }}" alt="{{ preset.label }}">
+                    </label>
+                  {% endfor %}
+                  <label class="avatar-option avatar-upload-option" title="Eigenes Bild">
+                    <input type="radio" name="avatar-choice-{{ person.id }}" value="upload" {% if person.avatar_choice == "upload" %}checked{% endif %}>
+                    {% if person.avatar_upload %}
+                      <img class="person-avatar" src="{{ person.avatar_upload.url }}" alt="Eigenes Avatarbild">
+                    {% else %}
+                      <span class="person-avatar person-avatar-upload">+</span>
+                    {% endif %}
+                    <span class="avatar-upload-label">{% if person.avatar_upload %}Bild ändern{% else %}Bild auswählen{% endif %}</span>
+                    <input id="avatar-upload-{{ person.id }}" class="avatar-file-input" type="file" name="avatar-upload-{{ person.id }}" accept="image/png,image/jpeg,image/gif,image/webp" data-avatar-upload>
+                  </label>
+                </div>
+                <div class="avatar-dialog-actions">
+                  <button class="button primary" type="button" data-avatar-close>Fertig</button>
+                </div>
+              </dialog>
+            </td>
+            <td><input name="name-{{ person.id }}" value="{{ person.name }}"></td>
+            <td>
+              {% if person.active %}
+                <span class="status-badge ready">Aktiv</span>
+              {% else %}
+                <span class="status-badge neutral">Inaktiv</span>
+              {% endif %}
+            </td>
+            <td>
+              <label class="toggle">
+                <input type="checkbox" name="active-{{ person.id }}" {% if person.active %}checked{% endif %}>
+                <span></span>
+              </label>
+            </td>
+            <td>
+              <button class="button danger small" type="submit" name="delete_person" value="{{ person.id }}">
+                {% include "includes/icon.html" with name="trash" %}
+                Löschen
+              </button>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5">Keine Personen vorhanden.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</form>
+
+{% if deleted_people %}
+  <section class="edit-form">
+    <div class="section-head">
+      <h2>Gelöschte Personen</h2>
+      <span class="hint">Bestehende Zuordnungen bleiben unverändert.</span>
+    </div>
+    <div class="table-wrap">
+      <table class="people-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Aktion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for person in deleted_people %}
+            <tr class="muted-row">
+              <td>{{ person.name }}</td>
+              <td><span class="status-badge error">Gelöscht</span></td>
+              <td>
+                <div class="people-actions">
+                <form method="post">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="restore">
+                  <input type="hidden" name="person_id" value="{{ person.id }}">
+                  <button class="button secondary small" type="submit">
+                    {% include "includes/icon.html" with name="restore" %}
+                    Wiederherstellen
+                  </button>
+                </form>
+                <form method="post" data-confirm="Diese Person endgültig löschen? Das geht nur, wenn keine Belege oder Zuordnungen darauf verweisen.">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="hard_delete">
+                  <input type="hidden" name="person_id" value="{{ person.id }}">
+                  <button class="button danger small" type="submit">
+                    {% include "includes/icon.html" with name="trash" %}
+                    Endgültig löschen
+                  </button>
+                </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

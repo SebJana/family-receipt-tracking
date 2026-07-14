@@ -1,0 +1,7 @@
+{% if person.avatar_image_url %}
+  <img class="person-avatar {% if person.avatar_is_preset %}animal-avatar{% endif %} {% if small %}person-avatar-small{% endif %}" src="{{ person.avatar_image_url }}" alt="Avatar von {{ person.name }}" data-person-avatar="{{ person.id }}">
+{% else %}
+  <span class="person-avatar person-avatar-initials {% if small %}person-avatar-small{% endif %}" style="background: {{ person.avatar_color }}" aria-label="Avatar von {{ person.name }}" data-person-avatar="{{ person.id }}">
+    {{ person.avatar_initials }}
+  </span>
+{% endif %}

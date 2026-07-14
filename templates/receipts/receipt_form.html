@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% load receipt_extras %}
+
+{% block title %}{{ form_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>{{ form_title }}</h1>
+    <p>Artikel können ohne Zuordnung gespeichert werden. In den Statistiken werden sie dann auf alle aktiven Personen verteilt.</p>
+  </div>
+  <div class="page-actions">
+    <button class="button primary" type="submit" form="receipt-edit-form">
+      {% include "includes/icon.html" with name="save" %}
+      {{ submit_label }}
+    </button>
+    <a class="button secondary" href="{% url 'receipts:receipt_list' %}">
+      {% include "includes/icon.html" with name="x" %}
+      Abbrechen
+    </a>
+  {% if receipt_object %}
+    <form method="post" action="{% url 'receipts:receipt_delete' receipt_object.id %}" data-confirm="Diesen Beleg wirklich löschen?">
+      {% csrf_token %}
+      <button class="button danger" type="submit">
+        {% include "includes/icon.html" with name="trash" %}
+        Beleg löschen
+      </button>
+    </form>
+  {% endif %}
+  </div>
+</div>
+
+<form id="receipt-edit-form" method="post" class="edit-form" data-row-form>
+  {% csrf_token %}
+  <input type="hidden" name="row_count" value="{{ row_count }}" data-row-count>
+
+  <section class="form-grid">
+    <label>Datum
+      <input type="date" name="date" value="{{ receipt.date }}" required>
+    </label>
+    <label>Einkaufsladen
+      <input name="market" value="{{ receipt.market }}" required>
+    </label>
+    <label>Käufer
+      <select name="buyer" required>
+        <option value="">Bitte wählen</option>
+        {% for person in buyers %}
+          <option value="{{ person.id }}" {% if receipt.buyer == person.id|stringformat:"s" %}selected{% endif %}>{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </section>
+
+  <div class="section-head">
+    <h2>Artikel</h2>
+    <button class="button secondary" type="button" data-add-row>
+      {% include "includes/icon.html" with name="plus" %}
+      Zeile hinzufügen
+    </button>
+  </div>
+
+  <div class="item-rows" data-rows>
+    {% for row in rows %}
+      <div class="item-row {% if row.delete %}is-deleted{% endif %}" data-row>
+        <input type="hidden" name="item-{{ row.index }}-id" value="{{ row.item_id|default:'' }}">
+        {% if can_delete_items and row.item_id %}
+          <input type="hidden" name="item-{{ row.index }}-delete" value="{% if row.delete %}on{% endif %}" data-delete-input>
+        {% endif %}
+        <div class="item-row-head">
+          <strong>Artikelzeile {{ forloop.counter }}</strong>
+          {% if can_delete_items and row.item_id %}
+            <button class="button danger small" type="button" data-delete-existing>
+              {% if row.delete %}
+                {% include "includes/icon.html" with name="restore" %}
+                Löschen zurücknehmen
+              {% else %}
+                {% include "includes/icon.html" with name="trash" %}
+                Artikel löschen
+              {% endif %}
+            </button>
+          {% else %}
+            <button class="button secondary small" type="button" data-remove-row>
+              {% include "includes/icon.html" with name="x" %}
+              Zeile entfernen
+            </button>
+          {% endif %}
+        </div>
+        {% if can_delete_items and row.item_id %}
+          <p class="delete-notice">Diese Artikelzeile wird beim Speichern gelöscht.</p>
+        {% endif %}
+        <div class="row-main">
+          <label>Artikel
+            <input name="item-{{ row.index }}-article" value="{{ row.article }}">
+          </label>
+          <label>Anzahl
+            <input name="item-{{ row.index }}-quantity" value="{{ row.quantity|quantity_int }}">
+          </label>
+          <label>Gesamtpreis
+            <input name="item-{{ row.index }}-price" value="{{ row.price }}" placeholder="1,99 €">
+          </label>
+        </div>
+        <div class="allocation" data-allocation>
+          <div class="allocation-actions">
+            <span>Zuordnung und Faktoren</span>
+            <div class="button-group">
+              <button type="button" class="button secondary small" data-select-all>Alle</button>
+              <button type="button" class="button secondary small" data-select-none>Niemand</button>
+            </div>
+          </div>
+          <p class="allocation-helper">Personen auswählen und die Faktoren als genaue Anteile über die Regler verteilen. Die Summe bleibt immer 1,0000. Keine Auswahl wird in den Statistiken auf alle aktiven Personen verteilt.</p>
+          <div class="allocation-grid">
+            {% for person in people %}
+              <div class="allocation-person" data-allocation-person>
+                <label class="allocation-select">
+                  <input data-allocation-checkbox type="checkbox" name="item-{{ row.index }}-persons" value="{{ person.id }}" {% if row|is_assigned:person %}checked{% endif %}>
+                  <span class="allocation-name">{{ person.name }}</span>
+                  <span class="allocation-state" data-allocation-state></span>
+                </label>
+                <div class="allocation-weight" data-weight-panel>
+                  <div class="allocation-weight-head">
+                    <span>Faktor</span>
+                    <input class="weight-number" data-weight-number name="item-{{ row.index }}-weight-{{ person.id }}" value="{{ row|weight_for:person|html_decimal }}" inputmode="decimal" aria-label="Faktor {{ person.name }}">
+                  </div>
+                  <input class="weight-slider" data-weight-slider type="range" min="0" max="1" step="0.0001" value="{{ row|weight_for:person|html_decimal }}" aria-label="Faktor-Regler {{ person.name }}">
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          {% if row.locked_allocations %}
+            <div class="locked-allocations">
+              <span>Historische Zuordnung</span>
+              {% for allocation in row.locked_allocations %}
+                <span class="locked-chip">
+                  {{ allocation.person.name }} gelöscht, Faktor {{ allocation.weight }}
+                </span>
+                <input type="hidden" name="item-{{ row.index }}-locked-persons" value="{{ allocation.person.id }}">
+                <input type="hidden" name="item-{{ row.index }}-locked-weight-{{ allocation.person.id }}" value="{{ allocation.weight }}">
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <template data-row-template>
+    <div class="item-row" data-row>
+      <input type="hidden" name="item-__index__-id" value="">
+      <div class="item-row-head">
+        <strong>Neue Artikelzeile</strong>
+        <button class="button secondary small" type="button" data-remove-row>
+          {% include "includes/icon.html" with name="x" %}
+          Zeile entfernen
+        </button>
+      </div>
+      <div class="row-main">
+        <label>Artikel
+          <input name="item-__index__-article">
+        </label>
+        <label>Anzahl
+          <input name="item-__index__-quantity" value="1">
+        </label>
+        <label>Gesamtpreis
+          <input name="item-__index__-price" placeholder="1,99 €">
+        </label>
+      </div>
+      <div class="allocation" data-allocation>
+        <div class="allocation-actions">
+          <span>Zuordnung und Faktoren</span>
+          <div class="button-group">
+            <button type="button" class="button secondary small" data-select-all>Alle</button>
+            <button type="button" class="button secondary small" data-select-none>Niemand</button>
+          </div>
+        </div>
+        <p class="allocation-helper">Personen auswählen und die Faktoren als genaue Anteile über die Regler verteilen. Die Summe bleibt immer 1,0000. Keine Auswahl wird in den Statistiken auf alle aktiven Personen verteilt.</p>
+        <div class="allocation-grid">
+          {% for person in people %}
+            <div class="allocation-person" data-allocation-person>
+              <label class="allocation-select">
+                <input data-allocation-checkbox type="checkbox" name="item-__index__-persons" value="{{ person.id }}">
+                <span class="allocation-name">{{ person.name }}</span>
+                <span class="allocation-state" data-allocation-state></span>
+              </label>
+              <div class="allocation-weight" data-weight-panel>
+                <div class="allocation-weight-head">
+                  <span>Faktor</span>
+                  <input class="weight-number" data-weight-number name="item-__index__-weight-{{ person.id }}" value="1" inputmode="decimal" aria-label="Faktor {{ person.name }}">
+                </div>
+                <input class="weight-slider" data-weight-slider type="range" min="0" max="1" step="0.0001" value="1" aria-label="Faktor-Regler {{ person.name }}">
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <div class="form-actions">
+    <button class="button primary" type="submit">
+      {% include "includes/icon.html" with name="save" %}
+      {{ submit_label }}
+    </button>
+    <a class="button secondary" href="{% url 'receipts:receipt_list' %}">
+      {% include "includes/icon.html" with name="x" %}
+      Abbrechen
+    </a>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load receipt_extras %}
+
+{% block title %}Import{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Import</h1>
+    <p>Semikolon-CSV einfügen, prüfen und speichern.</p>
+  </div>
+</div>
+
+<section class="import-prompt-panel">
+  <div class="section-head">
+    <div>
+      <h2>Kassenzettel-Prompt</h2>
+      <p>Prompt kopieren, <code>[KÄUFERNAME]</code> ersetzen und zusammen mit dem Kassenzettel verwenden.</p>
+    </div>
+    <button class="button secondary" type="button" data-copy-target="receipt-import-prompt" data-copy-label="Prompt kopieren">
+      Prompt kopieren
+    </button>
+  </div>
+  <textarea id="receipt-import-prompt" class="import-prompt-text" rows="16" spellcheck="false">{{ receipt_import_prompt }}</textarea>
+  <p class="copy-status" data-copy-status aria-live="polite"></p>
+</section>
+
+<form method="post" class="edit-form">
+  {% csrf_token %}
+  <input type="hidden" name="mode" value="preview">
+  <section class="form-grid">
+    <label>CSV-Text
+      <textarea name="csv_text" rows="10" placeholder="Datum;Einkaufsladen;Artikel;Anzahl;Gesamtpreis;Käufer">{{ csv_text }}</textarea>
+    </label>
+  </section>
+  <div class="form-actions">
+    <button class="button primary" type="submit">
+      {% include "includes/icon.html" with name="eye" %}
+      Vorschau erzeugen
+    </button>
+  </div>
+</form>
+
+{% if preview_rows %}
+  <section class="preview">
+    <div class="section-head">
+      <h2>Vorschau</h2>
+      <div class="page-actions">
+        <span>{{ preview_rows|length }} Zeilen</span>
+        <button class="button primary" type="submit" form="import-save-form">
+          {% include "includes/icon.html" with name="save" %}
+          Import speichern
+        </button>
+        <strong class="import-total">Summe: {{ import_total }}</strong>
+      </div>
+    </div>
+
+    <form id="import-save-form" method="post" class="edit-form">
+      {% csrf_token %}
+      <input type="hidden" name="mode" value="save">
+      <input type="hidden" name="row_count" value="{{ row_count }}">
+
+      {% for row in preview_rows %}
+        <div class="import-row {% if row.errors %}has-errors{% else %}is-ready{% endif %}">
+          <div class="row-status">
+            <strong>Zeile {{ forloop.counter }}</strong>
+            {% if row.errors %}
+              <span class="status-badge error">Fehler</span>
+              <ul>
+                {% for error in row.errors %}
+                  <li>{{ error }}</li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <span class="status-badge ready">Bereit</span>
+            {% endif %}
+          </div>
+          <div class="row-main">
+            <label>Datum
+              <input type="date" name="row-{{ row.index }}-date" value="{% if row.date %}{{ row.date|date:'Y-m-d' }}{% endif %}">
+            </label>
+            <label>Markt
+              <input name="row-{{ row.index }}-market" value="{{ row.market }}">
+            </label>
+            <label>Käufer
+              <input name="row-{{ row.index }}-buyer" value="{{ row.buyer_name }}" list="buyers">
+            </label>
+            <label>Artikel
+              <input name="row-{{ row.index }}-article" value="{{ row.article }}">
+            </label>
+            <label>Anzahl
+              <input name="row-{{ row.index }}-quantity" value="{{ row.quantity|quantity_int }}">
+            </label>
+            <label>Gesamtpreis
+              <input name="row-{{ row.index }}-price" value="{{ row.price }}">
+            </label>
+          </div>
+        </div>
+      {% endfor %}
+
+      <div class="form-actions">
+        <button class="button primary" type="submit">
+          {% include "includes/icon.html" with name="save" %}
+          Import speichern
+        </button>
+      </div>
+      <datalist id="buyers">
+        {% for person in buyers %}
+          <option value="{{ person.name }}"></option>
+        {% endfor %}
+      </datalist>
+    </form>
+  </section>
+{% endif %}
+{% endblock %}

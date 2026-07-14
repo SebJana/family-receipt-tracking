@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% load receipt_extras %}
+{% load static %}
+
+{% block title %}Belege{% endblock %}
+
+{% block content %}
+<div class="page-header" id="receipt-list-top">
+  <div>
+    <h1>Belege</h1>
+    <p>Erfasste Einkäufe mit Zuordnung und gewichteter Kostenaufteilung.</p>
+  </div>
+  <a class="button primary" href="{% url 'receipts:receipt_create' %}">
+    {% include "includes/icon.html" with name="plus" %}
+    Neuer Beleg
+  </a>
+</div>
+
+<form class="filters" id="receipt-filters" method="get" data-live-filter data-live-results-target="#receipt-list-content">
+  <label>Markt
+    <select name="market">
+      <option value="">Alle</option>
+      {% for market in markets %}
+        <option value="{{ market }}" {% if filters.market == market %}selected{% endif %}>{{ market }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Käufer
+    <select name="buyer">
+      <option value="">Alle</option>
+      {% for person in buyers %}
+        <option value="{{ person.id }}" {% if filters.buyer == person.id|stringformat:"s" %}selected{% endif %}>{{ person.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Artikel
+    <input name="article" value="{{ filters.article }}" placeholder="Teil des Artikelnamens">
+  </label>
+</form>
+
+<div id="receipt-list-content">
+<div class="receipt-list-layout">
+{% if receipts %}
+  {% static "images/market-logos/" as market_logo_base %}
+  <nav class="receipt-jump-menu" aria-label="Schnellnavigation zu Belegen">
+    <a class="receipt-jump-link receipt-jump-top" href="#receipt-filters">
+      <span aria-hidden="true">↑</span>
+      <span>Zu Filtern</span>
+    </a>
+    {% for receipt in receipts %}
+      <a class="receipt-jump-link" href="#receipt-{{ receipt.id }}" title="{{ receipt.market }} · {{ receipt.date|date:'d.m.Y' }}">
+        {% with logo=receipt.market|market_logo %}
+          {% if logo %}
+            <img src="{{ market_logo_base }}{{ logo }}" alt="{{ receipt.market }}">
+          {% else %}
+            <span class="receipt-jump-fallback" aria-hidden="true">{{ receipt.market|first|upper }}</span>
+          {% endif %}
+        {% endwith %}
+        <time datetime="{{ receipt.date|date:'Y-m-d' }}">{{ receipt.date|date:"d.m.Y" }}</time>
+      </a>
+    {% endfor %}
+  </nav>
+{% endif %}
+
+<div id="receipt-results" aria-live="polite">
+{% for receipt in receipts %}
+  <section class="receipt-block" id="receipt-{{ receipt.id }}">
+    <div class="receipt-head">
+      <div>
+        <h2 class="receipt-title">
+          {% with logo=receipt.market|market_logo %}
+            {% if logo %}
+              {% static "images/market-logos/" as market_logo_base %}
+              <span class="market-logo-frame">
+                <img class="market-logo" src="{{ market_logo_base }}{{ logo }}" alt="{{ receipt.market }} Logo">
+              </span>
+            {% else %}
+              <span class="market-logo-frame market-logo-fallback" aria-label="{{ receipt.market }} Logo">{{ receipt.market|first|upper }}</span>
+            {% endif %}
+          {% endwith %}
+          <span>{{ receipt.date|date:"d.m.Y" }} · {{ receipt.market }}</span>
+        </h2>
+        <span class="receipt-buyer">
+          {% include "includes/person_avatar.html" with person=receipt.buyer small=True %}
+          <span>{{ receipt.buyer.name }}</span>
+        </span>
+      </div>
+      <div class="receipt-actions">
+        <strong>{{ receipt.total_cents|cents_euro }}</strong>
+        <a class="button secondary small" href="{% url 'receipts:receipt_edit' receipt.id %}">
+          {% include "includes/icon.html" with name="edit" %}
+          Bearbeiten
+        </a>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Artikel</th>
+            <th>Anzahl</th>
+            <th>Gesamtpreis</th>
+            <th>Zuordnung</th>
+            <th class="factors-column">Faktoren</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in receipt.items.all %}
+            <tr>
+              <td>{{ item.article|highlight_search:filters.article }}</td>
+              <td>{{ item.quantity|quantity_int }}</td>
+              <td>{{ item.total_price_cents|cents_euro }}</td>
+              <td class="allocation-cell">
+                <span class="allocation-full">{{ item.allocation_text }}</span>
+                <span class="allocation-short">{{ item.allocation_short_text }}</span>
+              </td>
+              <td class="factors-column">
+                {% with factors=item.factor_breakdown %}
+                  {% if factors %}
+                    <div class="factor-visual" aria-label="Ungleiche Aufteilung">
+                      <div class="factor-bar">
+                        {% for factor in factors %}
+                          <span class="factor-segment" style="width: {{ factor.width }}%; background: {{ factor.person.avatar_chart_color }}" data-tooltip="{{ factor.person.name }}: {{ factor.percentage }}%" tabindex="0">
+                            <span class="factor-segment-label">{{ factor.short_name }} {{ factor.percentage }}%</span>
+                          </span>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  {% endif %}
+                {% endwith %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% empty %}
+  <p class="empty">Noch keine Belege vorhanden.</p>
+{% endfor %}
+</div>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+Extrahiere aus diesem Kassenzettel direkt importierbare CSV-Daten.
+
+Ausgabeformat:
+- Gib ausschließlich Semikolon-getrennte CSV-Daten aus: keine Markdown-Tabelle, keinen Codeblock, keine Erläuterung und keine CHECK-Zeile.
+- Die Kopfzeile muss exakt so lauten:
+Datum;Einkaufsladen;Artikel;Anzahl;Gesamtpreis;Käufer
+- Trage in jeder Datenzeile als Käufer exakt [KÄUFERNAME] ein.
+- Jede Datenzeile muss exakt sechs Spalten enthalten. Falls ein Feld ein Semikolon oder Anführungszeichen enthält, verwende korrekte CSV-Anführungszeichen.
+
+Regeln:
+- Datum im deutschen Format TT.MM.JJJJ ausgeben und ausschließlich vom Kassenzettel übernehmen. Wenn es nicht lesbar ist, „?“ eintragen und nicht raten.
+- Den Einkaufsladen vom Kassenzettel übernehmen. Wenn er nicht eindeutig erkennbar ist, „Unbekannt“ eintragen.
+- Mehrzeilige Artikelbezeichnungen zu einer Artikelzeile zusammenfassen.
+- Wenn ein Artikel mehrfach gekauft wurde, nur eine Datenzeile verwenden und die Menge unter Anzahl eintragen.
+- Gesamtpreis ist der Gesamtpreis der vollständigen Artikelposition nach Abzug aller zugehörigen Rabatte, nicht der Einzelpreis.
+- Preise im deutschen Zahlenformat mit Komma und ohne Währungszeichen ausgeben, zum Beispiel 3,98.
+- Pfand und Leergut als eigene Zeilen übernehmen. Pfand positiv, Leergut und Rückgaben negativ ausgeben.
+- Positionsbezogene Rabatte dem betroffenen Artikel zuordnen und direkt vom Gesamtpreis abziehen.
+- Nicht eindeutig zuordenbare Rabatte als „Rabatt unzugeordnet“ mit negativem Gesamtpreis ausgeben.
+- 30-%-Hinweise oder Aktionshinweise nur zusätzlich abziehen, wenn sie nicht bereits im gedruckten Artikelpreis enthalten sind.
+- Mengenangaben wie „2 Stk x 0,89“ bedeuten Anzahl 2 und Gesamtpreis 1,78.
+- Gewichtsangaben unter einer Artikelposition nicht als eigenen Artikel übernehmen.
+- Kontrolliere vor der Ausgabe intern, ob die Summe aller Gesamtpreise exakt dem Kassenzettelbetrag entspricht. Prüfe und korrigiere bei Abweichungen Mengen, Rabatte, Pfand, Leergut und mehrzeilige Positionen. Gib anschließend trotzdem ausschließlich die CSV-Daten aus.

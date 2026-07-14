@@ -1,0 +1,39 @@
+{% load static %}
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Belege{% endblock %}</title>
+  <link rel="icon" href="{% static 'images/logo/receipt-euro.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260714-import-prompt">
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <script src="{% static 'js/app.js' %}?v=20260714-import-prompt-copy" defer></script>
+</head>
+<body>
+  {% include "includes/icon_symbols.html" %}
+  <header class="topbar">
+    <a class="brand" href="{% url 'receipts:receipt_list' %}" aria-label="Belegverwaltung">
+      <img src="{% static 'images/logo/receipt-euro.svg' %}" alt="" width="32" height="32">
+    </a>
+    <nav>
+      <a href="{% url 'receipts:receipt_list' %}">Belege</a>
+      <a href="{% url 'receipts:import' %}">Import</a>
+      <a href="{% url 'receipts:stats' %}">Statistiken</a>
+      <a href="{% url 'receipts:people' %}">Personen</a>
+    </nav>
+  </header>
+
+  <main class="page">
+    {% if messages %}
+      <div class="messages">
+        {% for message in messages %}
+          <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
