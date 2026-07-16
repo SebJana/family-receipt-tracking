@@ -1,6 +1,8 @@
 services:
   web:
-    build: .
+    image: ghcr.io/sebjana/family-receipt-tracking:latest
+    pull_policy: always
+    restart: unless-stopped
     ports:
       - "6767:8000"
     env_file:
