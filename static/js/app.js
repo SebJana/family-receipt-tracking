@@ -817,6 +817,7 @@ function bindCategoryAssignmentPage() {
 
   const game = document.querySelector("[data-category-game]");
   const undoButton = game?.querySelector("[data-assignment-undo]");
+  const skipButton = game?.querySelector("[data-assignment-skip]");
   let lastAssignment = null;
   const csrf = document.querySelector('[name="csrfmiddlewaretoken"]')?.value || "";
   async function update(action, article, categoryId = "") {
@@ -844,6 +845,7 @@ function bindCategoryAssignmentPage() {
         if (game && result.next_article) {
           game.querySelector("[data-current-article]").textContent = result.next_article;
           game.querySelector("[data-current-item]").hidden = false;
+          skipButton.hidden = false;
           game.querySelector("[data-assignment-categories]").hidden = false;
           game.querySelector("[data-assignment-complete]").hidden = true;
         }
@@ -888,12 +890,24 @@ function bindCategoryAssignmentPage() {
       if (result.next_article) articleNode.textContent = result.next_article;
       else {
         game.querySelector("[data-current-item]").hidden = true;
+        skipButton.hidden = true;
         game.querySelector("[data-assignment-categories]").hidden = true;
         game.querySelector("[data-assignment-complete]").hidden = false;
       }
     } catch (error) { window.alert(error.message); }
     finally { choices.forEach((choice) => { choice.disabled = false; }); }
   }));
+  skipButton?.addEventListener("click", async () => {
+    const articleNode = game.querySelector("[data-current-article]");
+    const article = articleNode.textContent.trim();
+    if (!article) return;
+    skipButton.disabled = true;
+    try {
+      const result = await update("skip", article);
+      if (result.next_article) articleNode.textContent = result.next_article;
+    } catch (error) { window.alert(error.message); }
+    finally { skipButton.disabled = false; }
+  });
   undoButton?.addEventListener("click", async () => {
     if (!lastAssignment) return;
     undoButton.disabled = true;
@@ -912,6 +926,7 @@ function bindCategoryAssignmentPage() {
       // correction rather than sending the item back into a random queue position.
       game.querySelector("[data-current-article]").textContent = lastAssignment.article;
       game.querySelector("[data-current-item]").hidden = false;
+      skipButton.hidden = false;
       game.querySelector("[data-assignment-categories]").hidden = false;
       game.querySelector("[data-assignment-complete]").hidden = true;
       lastAssignment = null;

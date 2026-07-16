@@ -57,6 +57,7 @@
     <p class="assignment-kicker">Welcher Kategorie gehört dieser Artikel?</p>
     <button type="button" class="button secondary assignment-undo" data-assignment-undo hidden>↶ Letzte Zuordnung rückgängig</button>
     <div class="current-item" data-current-item {% if not random_item %}hidden{% endif %}><span data-current-article>{% if random_item %}{{ random_item.article }}{% endif %}</span></div>
+    <button type="button" class="text-button assignment-skip" data-assignment-skip {% if not random_item %}hidden{% endif %}>Überspringen →</button>
     <div class="assignment-categories" data-assignment-categories {% if not random_item %}hidden{% endif %}>{% for category in categories %}<button type="button" class="category-choice" data-assign-category="{{ category.id }}"><span>{{ category.emoji }}</span><strong>{{ category.name }}</strong></button>{% endfor %}</div>
     <div class="assignment-complete" data-assignment-complete {% if random_item %}hidden{% endif %}>🎉 Alles einsortiert!</div>
   </div>

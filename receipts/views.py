@@ -204,6 +204,14 @@ def categories(request):
                 # alphabetical data-cleanup task.
                 next_item = open_items.order_by("?").first()
                 return JsonResponse({"ok": True, "changed": changed, "remaining": remaining, "next_article": next_item["article"] if next_item else ""})
+        elif action == "skip" and request.headers.get("x-requested-with") == "XMLHttpRequest":
+            article = request.POST.get("article", "").strip()
+            open_items = ReceiptItem.objects.filter(category__isnull=True).values("article").distinct()
+            # Skipping changes presentation only, so assignments and undo history remain intact.
+            next_item = open_items.exclude(article__iexact=article).order_by("?").first()
+            if not next_item:
+                next_item = open_items.filter(article__iexact=article).first()
+            return JsonResponse({"ok": True, "next_article": next_item["article"] if next_item else ""})
         elif action == "delete":
             category = get_object_or_404(Category, pk=request.POST.get("category_id"))
             if category.is_default:

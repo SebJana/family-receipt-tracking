@@ -1,0 +1,6 @@
+services:
+  web:
+    # The local tag prevents development builds from replacing the deployment image tag.
+    image: family-receipt-tracking:local
+    build: .
+    pull_policy: never

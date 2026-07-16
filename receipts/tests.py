@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 import tempfile
@@ -213,6 +214,49 @@ class AllocationTests(ReceiptTestCase):
 
 
 class ViewTests(ReceiptTestCase):
+    def test_category_skip_changes_item_without_assigning_or_clearing_undo_state(self):
+        buyer = Person.objects.get(name="Person 1")
+        receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)
+        ReceiptItem.objects.create(receipt=receipt, article="First", quantity=1, total_price_cents=100)
+        ReceiptItem.objects.create(receipt=receipt, article="Second", quantity=1, total_price_cents=100)
+
+        response = self.client.post(
+            reverse("receipts:categories"), {"action": "skip", "article": "First"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.json()["next_article"], "Second")
+        self.assertEqual(ReceiptItem.objects.filter(category__isnull=True).count(), 2)
+
+    def test_stats_use_the_intersection_of_all_filters_for_top_articles(self):
+        buyer_a = Person.objects.get(name="Person 1")
+        buyer_b = Person.objects.get(name="Person 2")
+        selected_person = Person.objects.get(name="Person 3")
+        fruit = Category.objects.create(name="Obst", emoji="🍎")
+        other = Category.objects.create(name="Andere", emoji="A")
+
+        matching_receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer_a)
+        matching_item = ReceiptItem.objects.create(receipt=matching_receipt, article="Matching Apple", quantity=1, total_price_cents=600, category=fruit)
+        ItemAllocation.objects.create(item=matching_item, person=buyer_a, weight=1)
+        ItemAllocation.objects.create(item=matching_item, person=selected_person, weight=1)
+
+        wrong_buyer = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer_b)
+        wrong_buyer_item = ReceiptItem.objects.create(receipt=wrong_buyer, article="Wrong Buyer", quantity=1, total_price_cents=900, category=fruit)
+        ItemAllocation.objects.create(item=wrong_buyer_item, person=selected_person, weight=1)
+
+        wrong_category = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer_a)
+        wrong_category_item = ReceiptItem.objects.create(receipt=wrong_category, article="Wrong Category", quantity=1, total_price_cents=800, category=other)
+        ItemAllocation.objects.create(item=wrong_category_item, person=selected_person, weight=1)
+
+        stats = build_stats({
+            "buyer_id": buyer_a.id, "person_id": selected_person.id,
+            "category": str(fruit.id), "market": "A",
+            "date_from": date(2026, 7, 1), "date_to": date(2026, 7, 31),
+        })
+
+        self.assertEqual(stats["top_articles"], [("Matching Apple", "3,00 €")])
+        self.assertEqual(stats["monthly"]["total"], "3,00 €")
+
     def test_category_stats_are_sorted_colored_badged_and_filterable(self):
         buyer = Person.objects.get(name="Person 1")
         fruit = Category.objects.create(name="Obst", emoji="🍎")
