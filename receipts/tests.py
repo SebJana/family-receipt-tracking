@@ -6,7 +6,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import ItemAllocation, Person, Receipt, ReceiptItem
+from .models import Category, ItemAllocation, Person, Receipt, ReceiptItem
 from .services import build_settlement, build_stats, parse_import_csv, parse_price_cents, split_item_allocations
 from .templatetags.receipt_extras import highlight_search, market_logo, quantity_int
 
@@ -213,6 +213,117 @@ class AllocationTests(ReceiptTestCase):
 
 
 class ViewTests(ReceiptTestCase):
+    def test_category_stats_are_sorted_colored_badged_and_filterable(self):
+        buyer = Person.objects.get(name="Person 1")
+        fruit = Category.objects.create(name="Obst", emoji="🍎")
+        vegetables = Category.objects.create(name="Gemüse", emoji="🥦")
+        receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)
+        ReceiptItem.objects.create(receipt=receipt, article="Apple", quantity=1, total_price_cents=500, category=fruit)
+        ReceiptItem.objects.create(receipt=receipt, article="Broccoli", quantity=1, total_price_cents=200, category=vegetables)
+
+        stats = build_stats({})["categories"]
+        filtered = build_stats({"category": str(fruit.id)})["categories"]
+        response = self.client.get(reverse("receipts:stats"), {"category": str(fruit.id)})
+
+        self.assertEqual(stats["values"], [5.0, 2.0])
+        self.assertEqual([badge["initials"] for badge in stats["badges"]], ["🍎", "🥦"])
+        self.assertEqual(stats["colors"], ["#df4b4b", "#57a653"])
+        self.assertEqual(filtered["labels"], ["🍎 Obst"])
+        self.assertNotContains(response, 'data-category-emojis')
+        self.assertContains(response, 'name="category"')
+
+    def test_person_filter_hides_person_charts_and_settlement(self):
+        person = Person.objects.get(name="Person 1")
+        response = self.client.get(reverse("receipts:stats"), {
+            "person": person.id, "date_from": "2026-07-01", "date_to": "2026-07-31",
+        })
+
+        self.assertNotContains(response, "Personen pro Monat")
+        self.assertNotContains(response, "Anteil pro Person")
+        self.assertNotContains(response, "Monatsausgleich")
+
+    def test_existing_category_can_be_renamed_and_reiconed(self):
+        category = Category.objects.create(name="Obst", emoji="🍎")
+
+        response = self.client.post(reverse("receipts:categories"), {
+            "action": "edit", "category_id": category.id, "name": "Früchte", "emoji": "F",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        category.refresh_from_db()
+        self.assertEqual((category.name, category.emoji), ("Früchte", "F"))
+
+    def test_sonstiges_can_be_reiconed_but_not_renamed(self):
+        self.client.get(reverse("receipts:categories"))
+        category = Category.objects.get(name="Sonstiges")
+
+        self.client.post(reverse("receipts:categories"), {
+            "action": "edit", "category_id": category.id, "name": "Other", "emoji": "❓",
+        })
+
+        category.refresh_from_db()
+        self.assertEqual((category.name, category.emoji), ("Sonstiges", "❓"))
+
+    def test_category_symbol_must_be_one_emoji_or_uppercase_letter(self):
+        url = reverse("receipts:categories")
+        self.client.post(url, {"action": "create", "name": "Invalid", "emoji": "12"})
+        self.client.post(url, {"action": "create", "name": "Letter", "emoji": "A"})
+        self.client.post(url, {"action": "create", "name": "Emoji", "emoji": "🧑‍⚕️"})
+
+        self.assertFalse(Category.objects.filter(name="Invalid").exists())
+        self.assertTrue(Category.objects.filter(name="Letter", emoji="A").exists())
+        self.assertTrue(Category.objects.filter(name="Emoji", emoji="🧑‍⚕️").exists())
+
+    def test_categories_always_include_protected_sonstiges(self):
+        response = self.client.get(reverse("receipts:categories"))
+        category = Category.objects.get(name="Sonstiges")
+
+        self.assertEqual(category.emoji, "📦")
+        self.assertContains(response, "Standard")
+        self.client.post(reverse("receipts:categories"), {"action": "delete", "category_id": category.id})
+        self.assertTrue(Category.objects.filter(pk=category.id).exists())
+
+    def test_category_assignment_updates_every_matching_article(self):
+        buyer = Person.objects.get(name="Person 1")
+        category = Category.objects.create(name="Obst", emoji="🍎")
+        for market in ("A", "B"):
+            receipt = Receipt.objects.create(date="2026-07-03", market=market, buyer=buyer)
+            ReceiptItem.objects.create(receipt=receipt, article="Apfel", quantity=1, total_price_cents=100)
+
+        response = self.client.post(
+            reverse("receipts:categories"),
+            {"action": "assign", "article": "Apfel", "category_id": category.id},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(ReceiptItem.objects.filter(category=category).count(), 2)
+        self.assertEqual(response.json()["remaining"], 0)
+
+    def test_category_appears_on_receipt_and_in_filtered_stats(self):
+        buyer = Person.objects.get(name="Person 1")
+        category = Category.objects.create(name="Gemüse", emoji="🥕")
+        receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)
+        ReceiptItem.objects.create(receipt=receipt, article="Karotte", quantity=1, total_price_cents=250, category=category)
+
+        receipt_response = self.client.get(reverse("receipts:receipt_list"))
+        stats = build_stats({"market": "A"})
+
+        self.assertContains(receipt_response, "🥕")
+        self.assertEqual(stats["categories"]["labels"], ["🥕 Gemüse"])
+        self.assertEqual(stats["categories"]["values"], [2.5])
+
+    def test_uncategorized_items_are_presented_as_unknown(self):
+        buyer = Person.objects.get(name="Person 1")
+        receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)
+        ReceiptItem.objects.create(receipt=receipt, article="Mystery", quantity=1, total_price_cents=125)
+
+        response = self.client.get(reverse("receipts:receipt_list"))
+        stats = build_stats({})
+
+        self.assertContains(response, 'title="Unbekannt"')
+        self.assertEqual(stats["categories"]["labels"], ["? Unbekannt"])
+
     def test_people_can_select_preset_avatar(self):
         person = Person.objects.get(name="Person 1")
         payload = {"action": "save"}
@@ -310,7 +421,7 @@ class ViewTests(ReceiptTestCase):
         response = self.client.get(reverse("receipts:receipt_list"), {"article": "feeDo"})
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Große KAF<mark class="search-highlight">FEEDo</mark>se', html=True)
+        self.assertContains(response, 'Große KAF<mark class="search-highlight">FEEDo</mark>se')
         self.assertNotContains(response, "Tee")
         self.assertNotContains(response, "Filter anwenden")
         self.assertContains(response, f'href="#receipt-{matching_receipt.id}"')

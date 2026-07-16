@@ -49,12 +49,20 @@
       {% endfor %}
     </select>
   </label>
+  <label>Kategorie
+    <select name="category">
+      <option value="">Alle</option>
+      <option value="unknown" {% if filters.category == "unknown" %}selected{% endif %}>? Unbekannt</option>
+      {% for category in categories %}<option value="{{ category.id }}" {% if filters.category == category.id|stringformat:"s" %}selected{% endif %}>{{ category.emoji }} {{ category.name }}</option>{% endfor %}
+    </select>
+  </label>
 </form>
 
 {% if not single_month %}{{ stats.monthly|json_script:"monthly-data" }}{% endif %}
 {{ stats.markets|json_script:"market-data" }}
 {{ stats.person_month|json_script:"person-month-data" }}
 {{ stats.people|json_script:"people-data" }}
+{{ stats.categories|json_script:"category-data" }}
 
 <div class="stats-grid">
   {% if single_month %}
@@ -78,7 +86,7 @@
     </section>
   {% endif %}
 
-  {% if show_settlement %}
+  {% if show_settlement and not filters.person %}
     <section class="chart-panel wide settlement-panel">
       <div class="section-head">
         <div>
@@ -146,6 +154,7 @@
     </table>
   </section>
 
+  {% if not filters.person %}
   <section class="chart-panel wide">
     <h2>Personen pro Monat</h2>
     <canvas data-chart="stacked" data-source="person-month-data"></canvas>
@@ -176,6 +185,18 @@
       </tbody>
     </table>
   </section>
+  {% endif %}
+
+  {% if not filters.category %}
+  <section class="chart-panel">
+    <h2>Ausgaben nach Kategorie</h2>
+    <canvas data-chart="pie" data-source="category-data" data-category-emojis></canvas>
+    <table><tbody>
+      {% for label, value in stats.categories.rows %}<tr><td>{{ label }}</td><td>{{ value }}</td></tr>
+      {% empty %}<tr><td colspan="2">Keine Daten</td></tr>{% endfor %}
+    </tbody></table>
+  </section>
+  {% endif %}
 
   <section class="chart-panel">
     <h2>Top Artikel</h2>

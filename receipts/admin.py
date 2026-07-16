@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ItemAllocation, Person, Receipt, ReceiptItem
+from .models import Category, ItemAllocation, Person, Receipt, ReceiptItem
 
 
 class ItemAllocationInline(admin.TabularInline):
@@ -39,3 +39,6 @@ class ReceiptItemAdmin(admin.ModelAdmin):
 class ItemAllocationAdmin(admin.ModelAdmin):
     list_display = ("item", "person", "weight")
     list_filter = ("person",)
+
+
+admin.site.register(Category)

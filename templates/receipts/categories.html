@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Kategorien{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>Kategorien</h1><p>Verwalte Kategorien und sortiere Artikel spielerisch ein.</p></div>
+  <div class="category-score"><strong data-unassigned-count>{{ unassigned_count }}</strong><span>noch offen</span></div>
+</div>
+<div class="category-tabs" role="tablist">
+  <button class="category-tab active" type="button" role="tab" data-category-tab="manage" aria-selected="true">Kategorien verwalten</button>
+  <button class="category-tab" type="button" role="tab" data-category-tab="assign" aria-selected="false">Artikel zuordnen <span class="tab-count">{{ unassigned_count }}</span></button>
+</div>
+<section data-category-panel="manage">
+  <form class="category-create" method="post">
+    {% csrf_token %}<input type="hidden" name="action" value="create">
+    <div class="emoji-field">
+      <label for="category-emoji">Icon</label>
+      <div class="emoji-input-row"><input id="category-emoji" name="emoji" required placeholder="" aria-label="Emoji oder Großbuchstabe" data-category-symbol><button type="button" class="button secondary" data-emoji-toggle>Icon wählen</button></div>
+      <div class="emoji-picker" data-emoji-picker hidden aria-label="Emoji-Auswahl">
+        <input type="search" data-emoji-search placeholder="Emojis suchen …" aria-label="Emojis suchen">
+        <div class="emoji-results" data-emoji-results>{% for emoji, keywords in emoji_choices %}<button type="button" data-keywords="{{ keywords }}" aria-label="Emoji {{ emoji }}">{{ emoji }}</button>{% endfor %}</div>
+        <p class="emoji-no-results" data-emoji-no-results hidden>Keine passenden Emojis</p>
+      </div>
+    </div>
+    <label>Name <input name="name" required maxlength="80" placeholder="Kategorie"></label>
+    <button class="button primary" type="submit">Kategorie erstellen</button>
+  </form>
+  <div class="category-board">
+    {% for category in categories %}
+      <section class="category-card" data-category-id="{{ category.id }}">
+        <div class="category-card-head">
+          <h2><span>{{ category.emoji }}</span> {{ category.name }}</h2>
+          <div class="category-card-actions"><button type="button" class="text-button" data-category-edit-open="category-edit-{{ category.id }}">Bearbeiten</button>{% if category.is_default %}<span class="default-category-label">Standard</span>{% else %}<form method="post" data-confirm="Kategorie löschen?">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="category_id" value="{{ category.id }}"><button class="text-button danger" type="submit">Löschen</button></form>{% endif %}</div>
+        </div>
+        <dialog class="category-edit-dialog" id="category-edit-{{ category.id }}">
+          <form method="post" class="category-edit-form">{% csrf_token %}<input type="hidden" name="action" value="edit"><input type="hidden" name="category_id" value="{{ category.id }}">
+            <div class="category-dialog-head"><div><h3>Kategorie bearbeiten</h3><p>Ändere Name oder Symbol.</p></div><button type="button" class="dialog-close" data-category-edit-close aria-label="Schließen">×</button></div>
+            <label>Name <input name="name" value="{{ category.name }}" required maxlength="80" {% if category.is_default %}readonly{% endif %}></label>
+            <div class="emoji-field edit-emoji-field"><label>Icon</label><div class="emoji-input-row"><input name="emoji" value="{{ category.emoji }}" required aria-label="Emoji oder Großbuchstabe" data-edit-category-symbol><button type="button" class="button secondary" data-edit-emoji-toggle>Icon wählen</button></div>
+              <div class="emoji-picker" data-edit-emoji-picker hidden><input type="search" data-edit-emoji-search placeholder="Emojis suchen …"><div class="emoji-results">{% for emoji, keywords in emoji_choices %}<button type="button" data-keywords="{{ keywords }}" aria-label="Emoji {{ emoji }}">{{ emoji }}</button>{% endfor %}</div><p class="emoji-no-results" data-edit-emoji-no-results hidden>Keine passenden Emojis</p></div>
+            </div>
+            <div class="category-edit-actions"><button type="button" class="button secondary" data-category-edit-close>Abbrechen</button><button type="submit" class="button primary">Speichern</button></div>
+          </form>
+        </dialog>
+        <button class="button secondary category-items-open" type="button" data-category-items-open="category-items-{{ category.id }}"><span data-category-count>{{ category.grouped_items|length }}</span> Artikel verwalten</button>
+        <dialog class="category-items-dialog" id="category-items-{{ category.id }}">
+          <div class="category-dialog-head"><div><h3>{{ category.emoji }} {{ category.name }}</h3><p>Artikel suchen und aus der Kategorie entfernen.</p></div><button type="button" class="dialog-close" data-category-items-close aria-label="Schließen">×</button></div>
+          <input class="category-item-search" type="search" data-category-item-search placeholder="Artikel suchen …" aria-label="Artikel in {{ category.name }} suchen">
+          <div class="category-contents" data-category-contents>{% for item in category.grouped_items %}<div class="category-assigned-item" data-article="{{ item.article }}"><span>{{ item.article }} <small>({{ item.count }}×)</small></span><button type="button" class="button secondary small" data-clear-item>Entfernen</button></div>{% empty %}<p class="empty" data-category-empty>Noch leer</p>{% endfor %}</div>
+          <p class="empty" data-category-search-empty hidden>Keine passenden Artikel gefunden.</p>
+        </dialog>
+      </section>
+    {% endfor %}
+  </div>
+</section>
+<section data-category-panel="assign" hidden>
+  <div class="assignment-game" data-category-game>{% csrf_token %}
+    <p class="assignment-kicker">Welcher Kategorie gehört dieser Artikel?</p>
+    <button type="button" class="button secondary assignment-undo" data-assignment-undo hidden>↶ Letzte Zuordnung rückgängig</button>
+    <div class="current-item" data-current-item {% if not random_item %}hidden{% endif %}><span data-current-article>{% if random_item %}{{ random_item.article }}{% endif %}</span></div>
+    <div class="assignment-categories" data-assignment-categories {% if not random_item %}hidden{% endif %}>{% for category in categories %}<button type="button" class="category-choice" data-assign-category="{{ category.id }}"><span>{{ category.emoji }}</span><strong>{{ category.name }}</strong></button>{% endfor %}</div>
+    <div class="assignment-complete" data-assignment-complete {% if random_item %}hidden{% endif %}>🎉 Alles einsortiert!</div>
+  </div>
+</section>
+{% endblock %}

@@ -101,6 +101,23 @@ class Receipt(models.Model):
         return sum(item.total_price_cents for item in self.items.all())
 
 
+class Category(models.Model):
+    DEFAULT_NAME = "Sonstiges"
+    DEFAULT_EMOJI = "📦"
+    name = models.CharField(max_length=80, unique=True)
+    emoji = models.CharField(max_length=16)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"{self.emoji} {self.name}"
+
+    @property
+    def is_default(self):
+        return self.name.casefold() == self.DEFAULT_NAME.casefold()
+
+
 class ReceiptItem(models.Model):
     receipt = models.ForeignKey(Receipt, on_delete=models.CASCADE, related_name="items")
     article = models.CharField(max_length=200)
@@ -112,6 +129,9 @@ class ReceiptItem(models.Model):
     )
     total_price_cents = models.IntegerField()
     imported_raw_row = models.JSONField(blank=True, null=True)
+    category = models.ForeignKey(
+        Category, blank=True, null=True, on_delete=models.SET_NULL, related_name="items"
+    )
 
     class Meta:
         ordering = ["id"]

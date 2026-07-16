@@ -13,5 +13,6 @@ urlpatterns = [
     path("import/", views.import_receipts, name="import"),
     path("stats/", views.stats, name="stats"),
     path("people/", views.people, name="people"),
+    path("categories/", views.categories, name="categories"),
     path("health/", views.health, name="health"),
 ]

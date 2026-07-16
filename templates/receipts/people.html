@@ -37,7 +37,7 @@
       <thead>
         <tr>
           <th>Avatar</th>
-          <th>Name</th>
+          <th class="people-name-column">Name</th>
           <th>Status</th>
           <th>Aktiv</th>
           <th>Aktion</th>
@@ -87,7 +87,7 @@
                 </div>
               </dialog>
             </td>
-            <td><input name="name-{{ person.id }}" value="{{ person.name }}"></td>
+            <td class="people-name-column"><input name="name-{{ person.id }}" value="{{ person.name }}"></td>
             <td>
               {% if person.active %}
                 <span class="status-badge ready">Aktiv</span>
@@ -126,7 +126,7 @@
       <table class="people-table">
         <thead>
           <tr>
-            <th>Name</th>
+            <th class="people-name-column">Name</th>
             <th>Status</th>
             <th>Aktion</th>
           </tr>
@@ -134,7 +134,7 @@
         <tbody>
           {% for person in deleted_people %}
             <tr class="muted-row">
-              <td>{{ person.name }}</td>
+              <td class="people-name-column">{{ person.name }}</td>
               <td><span class="status-badge error">Gelöscht</span></td>
               <td>
                 <div class="people-actions">
