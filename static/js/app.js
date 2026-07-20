@@ -261,6 +261,136 @@ function bindDynamicRows() {
   });
 }
 
+function bindMarketComboboxes(root = document) {
+  root.querySelectorAll("[data-market-combobox]").forEach((combobox) => {
+    if (combobox.dataset.bound === "true") return;
+    combobox.dataset.bound = "true";
+
+    const input = combobox.querySelector("[data-market-input]");
+    const dropdown = combobox.querySelector("[data-market-options]");
+    const preview = combobox.querySelector("[data-market-preview]");
+    const options = [...combobox.querySelectorAll("[data-market-option]")];
+    const newOption = combobox.querySelector("[data-market-new-option]");
+    if (!input || !dropdown || !preview || !newOption) return;
+
+    let activeIndex = -1;
+    const normalized = (value) => String(value || "").trim().toLocaleLowerCase("de");
+
+    const updatePreview = () => {
+      const value = input.value.trim();
+      const exact = options.find((option) => normalized(option.dataset.name) === normalized(value));
+      const noIcon = exact?.dataset.noIcon === "true";
+      preview.replaceChildren();
+      preview.hidden = noIcon;
+      combobox.classList.toggle("has-no-preview", noIcon);
+      preview.classList.toggle("is-fallback", !noIcon && !exact?.dataset.logo);
+      if (noIcon) {
+        return;
+      } else if (exact?.dataset.logo) {
+        const image = document.createElement("img");
+        image.src = exact.dataset.logo;
+        image.alt = "";
+        preview.append(image);
+      } else {
+        preview.textContent = exact?.dataset.fallback
+          || value.charAt(0).toLocaleUpperCase("de")
+          || "?";
+      }
+    };
+
+    const visibleChoices = () => [
+      ...options.filter((option) => !option.hidden),
+      ...(newOption.hidden ? [] : [newOption]),
+    ];
+
+    const setActive = (index) => {
+      const choices = visibleChoices();
+      choices.forEach((choice) => {
+        choice.classList.remove("is-active");
+        choice.setAttribute("aria-selected", "false");
+      });
+      if (!choices.length) {
+        activeIndex = -1;
+        return;
+      }
+      activeIndex = Math.max(0, Math.min(index, choices.length - 1));
+      choices[activeIndex].classList.add("is-active");
+      choices[activeIndex].setAttribute("aria-selected", "true");
+      choices[activeIndex].scrollIntoView({ block: "nearest" });
+    };
+
+    const filterOptions = () => {
+      const query = normalized(input.value);
+      let hasExact = false;
+      options.forEach((option) => {
+        const name = normalized(option.dataset.name);
+        option.hidden = Boolean(query) && !name.includes(query);
+        if (name === query) hasExact = true;
+      });
+      const allowNew = combobox.dataset.allowNew !== "false";
+      newOption.hidden = !allowNew || !query || hasExact;
+      newOption.textContent = input.value.trim()
+        ? `Neuen Markt verwenden: ${input.value.trim()}`
+        : "";
+      activeIndex = -1;
+    };
+
+    const openDropdown = () => {
+      filterOptions();
+      dropdown.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+    };
+
+    const closeDropdown = () => {
+      dropdown.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      activeIndex = -1;
+    };
+
+    const selectOption = (option) => {
+      if (option !== newOption) input.value = option.dataset.name;
+      updatePreview();
+      closeDropdown();
+      input.focus();
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+
+    options.forEach((option) => {
+      option.addEventListener("mousedown", (event) => event.preventDefault());
+      option.addEventListener("click", () => selectOption(option));
+    });
+    newOption.addEventListener("mousedown", (event) => event.preventDefault());
+    newOption.addEventListener("click", () => selectOption(newOption));
+
+    input.addEventListener("focus", openDropdown);
+    input.addEventListener("click", openDropdown);
+    input.addEventListener("input", () => {
+      updatePreview();
+      openDropdown();
+    });
+    input.addEventListener("keydown", (event) => {
+      const choices = visibleChoices();
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (dropdown.hidden) openDropdown();
+        setActive(activeIndex + 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (dropdown.hidden) openDropdown();
+        setActive(activeIndex < 0 ? choices.length - 1 : activeIndex - 1);
+      } else if (event.key === "Enter" && !dropdown.hidden && activeIndex >= 0) {
+        event.preventDefault();
+        selectOption(visibleChoices()[activeIndex]);
+      } else if (event.key === "Escape") {
+        closeDropdown();
+      }
+    });
+    input.addEventListener("blur", () => window.setTimeout(closeDropdown, 100));
+    updatePreview();
+  });
+}
+
 function iconMarkup(name) {
   return `<svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-${name}"></use></svg>`;
 }
@@ -317,6 +447,15 @@ function marketColors(logos) {
     "dm.svg": "#002e6d",
     "rossmann.svg": "#d71920",
     "edeka.svg": "#1f35dc",
+    "mcdonalds.svg": "#ffbc0d",
+    "burger-king.svg": "#d62300",
+    "kfc.svg": "#e4002b",
+    "subway.svg": "#008c15",
+    "dominos.svg": "#006491",
+    "pizza-hut.svg": "#e31837",
+    "five-guys.svg": "#d71920",
+    "dunkin.svg": "#f58220",
+    "lieferando.png": "#ff8000",
   };
   return logos.map((logo) => brandColors[logo] || "#1d6f5f");
 }
@@ -942,6 +1081,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindLiveFilters();
   bindAllocationControls(document);
   bindDynamicRows();
+  bindMarketComboboxes();
   bindRowActions(document);
   bindConfirmForms();
   bindCopyButtons();

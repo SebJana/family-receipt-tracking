@@ -12,6 +12,84 @@ from django.db.models import Prefetch
 from .models import ItemAllocation, Person, Receipt, ReceiptItem
 
 
+CANONICAL_MARKETS = (
+    "ALDI",
+    "Burger King",
+    "dm",
+    "Domino's",
+    "Dunkin'",
+    "EDEKA",
+    "Five Guys",
+    "Kaufland",
+    "KFC",
+    "Lidl",
+    "Lieferando",
+    "McDonald's",
+    "Netto",
+    "NORMA",
+    "PENNY",
+    "Pizza Hut",
+    "REWE",
+    "ROSSMANN",
+    "Subway",
+)
+
+
+def _market_key(value):
+    return " ".join((value or "").strip().split()).casefold()
+
+
+MARKET_ALIASES = {
+    _market_key(alias): canonical
+    for canonical, aliases in {
+        "ALDI": ("ALDI", "Aldi"),
+        "Burger King": ("Burger King",),
+        "dm": ("dm", "dm-drogerie markt", "dm drogerie markt"),
+        "Domino's": ("Domino's", "Dominos", "Domino's Pizza", "Dominos Pizza"),
+        "Dunkin'": ("Dunkin'", "Dunkin", "Dunkin' Donuts", "Dunkin Donuts"),
+        "EDEKA": ("EDEKA", "Edeka"),
+        "Five Guys": ("Five Guys",),
+        "Kaufland": ("Kaufland",),
+        "KFC": ("KFC",),
+        "Lidl": ("Lidl",),
+        "Lieferando": ("Lieferando", "Lieferando.de"),
+        "McDonald's": ("McDonald's", "McDonalds", "Mc Donald's", "Mc Donalds"),
+        "Netto": ("Netto", "Netto Marken-Discount", "Netto Marken Discount"),
+        "NORMA": ("NORMA", "Norma"),
+        "PENNY": ("PENNY", "Penny"),
+        "Pizza Hut": ("Pizza Hut",),
+        "REWE": ("REWE", "Rewe"),
+        "ROSSMANN": ("ROSSMANN", "Rossmann"),
+        "Subway": ("Subway",),
+    }.items()
+    for alias in aliases
+}
+
+
+def normalize_market_name(value, known_markets=()):
+    """Return a canonical known name, while preserving genuinely new market names."""
+    cleaned = " ".join((value or "").strip().split())
+    if not cleaned:
+        return ""
+    key = _market_key(cleaned)
+    if key in MARKET_ALIASES:
+        return MARKET_ALIASES[key]
+    existing_by_key = {}
+    for market in known_markets:
+        if market:
+            existing_by_key.setdefault(_market_key(market), market)
+    return existing_by_key.get(key, cleaned)
+
+
+def market_choices(existing_markets=()):
+    choices = {
+        normalize_market_name(market, existing_markets)
+        for market in (*CANONICAL_MARKETS, *existing_markets)
+        if market
+    }
+    return sorted(choices, key=str.casefold)
+
+
 EXPECTED_COLUMNS = [
     "Datum",
     "Einkaufsladen",
@@ -87,7 +165,7 @@ def format_euro(cents):
     return f"{amount:.2f}".replace(".", ",") + " €"
 
 
-def parse_import_csv(text):
+def parse_import_csv(text, known_markets=()):
     text = (text or "").lstrip("\ufeff")
     reader = csv.DictReader(StringIO(text), delimiter=";")
     rows = []
@@ -106,7 +184,7 @@ def parse_import_csv(text):
             rows.append(row)
             continue
 
-        row.market = raw.get("Einkaufsladen", "")
+        row.market = normalize_market_name(raw.get("Einkaufsladen", ""), known_markets)
         row.article = raw.get("Artikel", "")
         row.buyer_name = raw.get("Käufer", "")
 
@@ -292,6 +370,8 @@ def build_stats(filters):
     person_totals = round_exact_cents(person_totals_exact)
     article_totals = round_exact_cents(article_totals_exact)
     category_totals = round_exact_cents(category_totals_exact)
+    sorted_markets = sorted(market_totals.items(), key=lambda pair: (-pair[1], pair[0].casefold()))
+    sorted_people = sorted(person_totals.items(), key=lambda pair: (-pair[1], pair[0].casefold()))
     # Largest categories lead both the legend and the table so the main spending drivers
     # remain easy to scan.
     sorted_categories = sorted(category_totals.items(), key=lambda pair: pair[1], reverse=True)
@@ -344,9 +424,9 @@ def build_stats(filters):
             "total": format_euro(sum(monthly.values())),
         },
         "markets": {
-            "labels": list(market_totals.keys()),
-            "values": [value / 100 for value in market_totals.values()],
-            "rows": [(market, format_euro(cents)) for market, cents in market_totals.items()],
+            "labels": [market for market, _cents in sorted_markets],
+            "values": [cents / 100 for _market, cents in sorted_markets],
+            "rows": [(market, format_euro(cents)) for market, cents in sorted_markets],
         },
         "person_month": {
             "labels": months,
@@ -359,9 +439,9 @@ def build_stats(filters):
             ],
         },
         "people": {
-            "labels": list(person_totals.keys()),
-            "values": [value / 100 for value in person_totals.values()],
-            "rows": [(person, format_euro(cents)) for person, cents in person_totals.items()],
+            "labels": [person for person, _cents in sorted_people],
+            "values": [cents / 100 for _person, cents in sorted_people],
+            "rows": [(person, format_euro(cents)) for person, cents in sorted_people],
         },
         "top_articles": [(article, format_euro(cents)) for article, cents in top_articles],
         "categories": {

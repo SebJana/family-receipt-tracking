@@ -21,6 +21,20 @@ MARKET_LOGOS = {
     "dm": "dm.svg",
     "rossmann": "rossmann.svg",
     "edeka": "edeka.svg",
+    "mcdonald's": "mcdonalds.svg",
+    "mcdonalds": "mcdonalds.svg",
+    "mc donald's": "mcdonalds.svg",
+    "mc donalds": "mcdonalds.svg",
+    "burger king": "burger-king.svg",
+    "kfc": "kfc.svg",
+    "subway": "subway.svg",
+    "domino's": "dominos.svg",
+    "dominos": "dominos.svg",
+    "pizza hut": "pizza-hut.svg",
+    "five guys": "five-guys.svg",
+    "dunkin'": "dunkin.svg",
+    "dunkin": "dunkin.svg",
+    "lieferando": "lieferando.png",
 }
 
 

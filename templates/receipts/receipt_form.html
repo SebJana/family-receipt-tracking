@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load receipt_extras %}
+{% load receipt_extras static %}
 
 {% block title %}{{ form_title }}{% endblock %}
 
@@ -38,9 +38,32 @@
     <label>Datum
       <input type="date" name="date" value="{{ receipt.date }}" required>
     </label>
-    <label>Einkaufsladen
-      <input name="market" value="{{ receipt.market }}" required>
-    </label>
+    <div class="market-field">
+      <label for="receipt-market">Einkaufsladen</label>
+      <div class="market-combobox" data-market-combobox>
+        <div class="market-input-wrap">
+          <span class="market-input-logo" data-market-preview aria-hidden="true"></span>
+          <input id="receipt-market" name="market" value="{{ receipt.market }}" autocomplete="off"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="receipt-market-options" data-market-input required>
+        </div>
+        <div class="market-dropdown" id="receipt-market-options" role="listbox" data-market-options hidden>
+          {% static "images/market-logos/" as market_logo_base %}
+          {% for market in markets %}
+            {% with logo=market|market_logo %}
+              <button type="button" class="market-option" role="option" data-market-option
+                      data-name="{{ market }}" data-logo="{% if logo %}{{ market_logo_base }}{{ logo }}{% endif %}">
+                <span class="market-option-logo {% if not logo %}is-fallback{% endif %}" aria-hidden="true">
+                  {% if logo %}<img src="{{ market_logo_base }}{{ logo }}" alt="">{% else %}{{ market|first|upper }}{% endif %}
+                </span>
+                <span>{{ market }}</span>
+              </button>
+            {% endwith %}
+          {% endfor %}
+          <button type="button" class="market-new-option" role="option" data-market-new-option hidden></button>
+        </div>
+      </div>
+    </div>
     <label>Käufer
       <select name="buyer" required>
         <option value="">Bitte wählen</option>

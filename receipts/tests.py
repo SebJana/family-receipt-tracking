@@ -8,7 +8,15 @@ from django.test import TestCase
 from django.urls import reverse
 
 from .models import Category, ItemAllocation, Person, Receipt, ReceiptItem
-from .services import build_settlement, build_stats, parse_import_csv, parse_price_cents, split_item_allocations
+from .services import (
+    build_settlement,
+    build_stats,
+    market_choices,
+    normalize_market_name,
+    parse_import_csv,
+    parse_price_cents,
+    split_item_allocations,
+)
 from .templatetags.receipt_extras import highlight_search, market_logo, quantity_int
 
 
@@ -27,6 +35,29 @@ class ReceiptTestCase(TestCase):
 
 
 class GermanParsingTests(ReceiptTestCase):
+    def test_known_markets_are_canonicalized_but_unknown_markets_are_preserved(self):
+        self.assertEqual(normalize_market_name("  rewe "), "REWE")
+        self.assertEqual(normalize_market_name("McDonalds"), "McDonald's")
+        self.assertEqual(normalize_market_name("my   local shop"), "my local shop")
+        self.assertEqual(
+            normalize_market_name("my local shop", ["My Local Shop"]),
+            "My Local Shop",
+        )
+
+    def test_market_choices_include_canonical_and_existing_custom_markets(self):
+        choices = market_choices(["rewe", "Corner Shop"])
+
+        self.assertIn("REWE", choices)
+        self.assertIn("Corner Shop", choices)
+        self.assertNotIn("rewe", choices)
+
+    def test_csv_import_canonicalizes_known_markets(self):
+        csv_text = SAMPLE_CSV.replace("Example Market", "  rewe  ")
+
+        rows = parse_import_csv(csv_text)
+
+        self.assertTrue(all(row.market == "REWE" for row in rows))
+
     def test_single_person_assignment_has_no_factor_text(self):
         buyer = Person.objects.get(name="Person 1")
         receipt = Receipt.objects.create(date="2026-07-03", market="Test", buyer=buyer)
@@ -68,6 +99,12 @@ class GermanParsingTests(ReceiptTestCase):
         self.assertEqual(market_logo("ALDI SÜD"), "aldi.svg")
         self.assertEqual(market_logo("dm"), "dm.svg")
         self.assertEqual(market_logo("Edeka Center"), "edeka.svg")
+        self.assertEqual(market_logo("McDonald's Berlin"), "mcdonalds.svg")
+        self.assertEqual(market_logo("Mc Donalds Restaurant"), "mcdonalds.svg")
+        self.assertEqual(market_logo("BURGER KING 1284"), "burger-king.svg")
+        self.assertEqual(market_logo("Domino's Pizza"), "dominos.svg")
+        self.assertEqual(market_logo("Dunkin Donuts"), "dunkin.svg")
+        self.assertEqual(market_logo("Lieferando.de"), "lieferando.png")
         self.assertEqual(market_logo("Unbekannter Markt"), "")
 
     def test_monthly_settlement_calculates_who_pays_whom(self):
@@ -214,6 +251,54 @@ class AllocationTests(ReceiptTestCase):
 
 
 class ViewTests(ReceiptTestCase):
+    def test_receipt_list_market_filter_shows_market_logos(self):
+        buyer = Person.objects.get(name="Person 1")
+        Receipt.objects.create(date="2026-07-01", market="REWE", buyer=buyer)
+        Receipt.objects.create(date="2026-07-02", market="Corner Shop", buyer=buyer)
+
+        response = self.client.get(reverse("receipts:receipt_list"))
+
+        self.assertContains(response, 'id="receipt-filter-market"')
+        self.assertContains(response, 'data-name="REWE"')
+        self.assertContains(response, "images/market-logos/rewe.svg")
+        self.assertContains(response, 'data-name="Corner Shop"')
+        self.assertContains(response, 'class="market-option-logo is-fallback"', html=False)
+
+    def test_new_receipt_market_is_editable_with_known_market_suggestions(self):
+        Receipt.objects.create(
+            date="2026-07-01",
+            market="Corner Shop",
+            buyer=Person.objects.get(name="Person 1"),
+        )
+
+        response = self.client.get(reverse("receipts:receipt_create"))
+
+        self.assertContains(response, 'role="combobox"')
+        self.assertContains(response, 'data-name="REWE"')
+        self.assertContains(response, 'data-name="Corner Shop"')
+        self.assertContains(response, 'class="market-option-logo is-fallback"', html=False)
+
+    def test_market_and_people_stats_are_sorted_by_spending_descending(self):
+        person_1 = Person.objects.get(name="Person 1")
+        person_2 = Person.objects.get(name="Person 2")
+        low_receipt = Receipt.objects.create(date="2026-07-03", market="Low Market", buyer=person_1)
+        high_receipt = Receipt.objects.create(date="2026-07-03", market="High Market", buyer=person_2)
+        low_item = ReceiptItem.objects.create(
+            receipt=low_receipt, article="Low", quantity=1, total_price_cents=200
+        )
+        high_item = ReceiptItem.objects.create(
+            receipt=high_receipt, article="High", quantity=1, total_price_cents=900
+        )
+        ItemAllocation.objects.create(item=low_item, person=person_1, weight=1)
+        ItemAllocation.objects.create(item=high_item, person=person_2, weight=1)
+
+        stats = build_stats({})
+
+        self.assertEqual(stats["markets"]["labels"], ["High Market", "Low Market"])
+        self.assertEqual(stats["markets"]["values"], [9.0, 2.0])
+        self.assertEqual(stats["people"]["labels"], ["Person 2", "Person 1"])
+        self.assertEqual(stats["people"]["values"], [9.0, 2.0])
+
     def test_category_skip_changes_item_without_assigning_or_clearing_undo_state(self):
         buyer = Person.objects.get(name="Person 1")
         receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)

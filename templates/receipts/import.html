@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load receipt_extras %}
+{% load receipt_extras static %}
 
 {% block title %}Import{% endblock %}
 
@@ -7,7 +7,7 @@
 <div class="page-header">
   <div>
     <h1>Import</h1>
-    <p>Semikolon-CSV einfügen, prüfen und speichern.</p>
+    <p>Semikolon-CSV einfügen, prüfen und speichern. Bekannte Marktnamen werden automatisch vereinheitlicht.</p>
   </div>
 </div>
 
@@ -79,9 +79,32 @@
             <label>Datum
               <input type="date" name="row-{{ row.index }}-date" value="{% if row.date %}{{ row.date|date:'Y-m-d' }}{% endif %}">
             </label>
-            <label>Markt
-              <input name="row-{{ row.index }}-market" value="{{ row.market }}">
-            </label>
+            <div class="market-field">
+              <label for="import-market-{{ row.index }}">Markt</label>
+              <div class="market-combobox" data-market-combobox>
+                <div class="market-input-wrap">
+                  <span class="market-input-logo" data-market-preview aria-hidden="true"></span>
+                  <input id="import-market-{{ row.index }}" name="row-{{ row.index }}-market" value="{{ row.market }}"
+                         autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                         aria-controls="import-market-options-{{ row.index }}" data-market-input>
+                </div>
+                <div class="market-dropdown" id="import-market-options-{{ row.index }}" role="listbox" data-market-options hidden>
+                  {% static "images/market-logos/" as market_logo_base %}
+                  {% for market in markets %}
+                    {% with logo=market|market_logo %}
+                      <button type="button" class="market-option" role="option" data-market-option
+                              data-name="{{ market }}" data-logo="{% if logo %}{{ market_logo_base }}{{ logo }}{% endif %}">
+                        <span class="market-option-logo {% if not logo %}is-fallback{% endif %}" aria-hidden="true">
+                          {% if logo %}<img src="{{ market_logo_base }}{{ logo }}" alt="">{% else %}{{ market|first|upper }}{% endif %}
+                        </span>
+                        <span>{{ market }}</span>
+                      </button>
+                    {% endwith %}
+                  {% endfor %}
+                  <button type="button" class="market-new-option" role="option" data-market-new-option hidden></button>
+                </div>
+              </div>
+            </div>
             <label>Käufer
               <input name="row-{{ row.index }}-buyer" value="{{ row.buyer_name }}" list="buyers">
             </label>

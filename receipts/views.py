@@ -18,6 +18,8 @@ from .services import (
     ParsedImportRow,
     build_stats,
     format_euro,
+    market_choices,
+    normalize_market_name,
     parse_german_date,
     parse_german_decimal,
     parse_import_csv,
@@ -279,6 +281,7 @@ def receipt_list(request):
 def receipt_create(request):
     people = list(_assignable_people())
     buyers = list(_buyer_choices())
+    markets = _market_choices()
     if request.method == "POST":
         receipt, rows, errors = _parse_manual_receipt_request(request.POST, people, buyers)
         if not errors:
@@ -294,6 +297,7 @@ def receipt_create(request):
                 "can_delete_items": False,
                 "form_title": "Neuer Beleg",
                 "people": people,
+                "markets": markets,
                 "receipt": receipt,
                 "row_count": max(len(rows), 1),
                 "rows": rows,
@@ -310,6 +314,7 @@ def receipt_create(request):
             "can_delete_items": False,
             "form_title": "Neuer Beleg",
             "people": people,
+            "markets": markets,
             "receipt": {},
             "row_count": len(rows),
             "rows": rows,
@@ -325,6 +330,7 @@ def receipt_edit(request, receipt_id):
     )
     people = list(_assignable_people())
     buyers = list(_buyer_choices(receipt.buyer))
+    markets = _market_choices()
     if request.method == "POST":
         receipt_data, rows, errors = _update_receipt_from_request(receipt, request.POST, people, buyers)
         if not errors:
@@ -340,6 +346,7 @@ def receipt_edit(request, receipt_id):
                 "can_delete_items": True,
                 "form_title": "Beleg bearbeiten",
                 "people": people,
+                "markets": markets,
                 "receipt": receipt_data,
                 "receipt_object": receipt,
                 "row_count": max(len(rows), 1),
@@ -357,6 +364,7 @@ def receipt_edit(request, receipt_id):
             "can_delete_items": True,
             "form_title": "Beleg bearbeiten",
             "people": people,
+            "markets": markets,
             "receipt": {
                 "date": receipt.date.isoformat(),
                 "market": receipt.market,
@@ -381,8 +389,9 @@ def receipt_delete(request, receipt_id):
 
 def import_receipts(request):
     buyers = list(_buyer_choices())
+    markets = _market_choices()
     if request.method == "POST" and request.POST.get("mode") == "save":
-        rows, errors = _parse_import_save_request(request.POST)
+        rows, errors = _parse_import_save_request(request.POST, markets)
         if not errors:
             count = save_import_rows(rows)
             messages.success(request, f"{count} Import-Zeilen wurden gespeichert.")
@@ -394,6 +403,7 @@ def import_receipts(request):
             "receipts/import.html",
             {
                 "buyers": buyers,
+                "markets": markets,
                 "receipt_import_prompt": RECEIPT_IMPORT_PROMPT,
                 "preview_rows": [_editable_from_parsed(index, row) for index, row in enumerate(rows)],
                 "row_count": len(rows),
@@ -403,7 +413,7 @@ def import_receipts(request):
 
     if request.method == "POST":
         csv_text = request.POST.get("csv_text", "")
-        rows = parse_import_csv(csv_text)
+        rows = parse_import_csv(csv_text, markets)
         preview_rows = [_editable_from_parsed(index, row) for index, row in enumerate(rows)]
         if any(row.errors for row in preview_rows):
             messages.warning(request, "Einige Zeilen brauchen Korrekturen vor dem Speichern.")
@@ -412,6 +422,7 @@ def import_receipts(request):
             "receipts/import.html",
             {
                 "buyers": buyers,
+                "markets": markets,
                 "receipt_import_prompt": RECEIPT_IMPORT_PROMPT,
                 "preview_rows": preview_rows,
                 "row_count": len(preview_rows),
@@ -423,7 +434,7 @@ def import_receipts(request):
     return render(
         request,
         "receipts/import.html",
-        {"buyers": buyers, "receipt_import_prompt": RECEIPT_IMPORT_PROMPT},
+        {"buyers": buyers, "markets": markets, "receipt_import_prompt": RECEIPT_IMPORT_PROMPT},
     )
 
 
@@ -638,7 +649,7 @@ def _parse_manual_receipt_request(post, people, buyers):
     errors = []
     receipt_data = {
         "date": post.get("date", ""),
-        "market": post.get("market", "").strip(),
+        "market": normalize_market_name(post.get("market", ""), _market_choices()),
         "buyer": post.get("buyer", ""),
     }
     try:
@@ -678,10 +689,18 @@ def _buyer_choices(current_buyer=None):
     return choices
 
 
+def _market_choices():
+    existing = [
+        row["market"]
+        for row in Receipt.objects.values("market").annotate(count=Count("id")).order_by("-count", "market")
+    ]
+    return market_choices(existing)
+
+
 def _update_receipt_from_request(receipt, post, people, buyers):
     receipt_data = {
         "date": post.get("date", ""),
-        "market": post.get("market", "").strip(),
+        "market": normalize_market_name(post.get("market", ""), _market_choices()),
         "buyer": post.get("buyer", ""),
     }
     errors = []
@@ -935,7 +954,7 @@ def _editable_from_parsed(index, row):
     return editable
 
 
-def _parse_import_save_request(post):
+def _parse_import_save_request(post, known_markets=()):
     rows = []
     errors = []
     row_count = int(post.get("row_count", "0") or 0)
@@ -952,7 +971,7 @@ def _parse_import_save_request(post):
         row = ParsedImportRow(
             row_number=index + 1,
             raw=raw,
-            market=raw["Einkaufsladen"].strip(),
+            market=normalize_market_name(raw["Einkaufsladen"], known_markets),
             article=raw["Artikel"].strip(),
             buyer_name=raw["Käufer"].strip(),
         )
