@@ -8,12 +8,16 @@ function bindAllocationControls(root) {
     const checkboxes = allocation.querySelectorAll("[data-allocation-checkbox]");
     const allButton = allocation.querySelector("[data-select-all]");
     const noneButton = allocation.querySelector("[data-select-none]");
+    const totalNode = allocation.querySelector("[data-allocation-total]");
 
     const getControls = (person) => ({
       checkbox: person.querySelector("[data-allocation-checkbox]"),
       number: person.querySelector("[data-weight-number]"),
       slider: person.querySelector("[data-weight-slider]"),
+      fixed: person.querySelector("[data-weight-fixed]"),
     });
+
+    const isFixed = (person) => Boolean(getControls(person).fixed?.checked);
 
     const selectedPeople = () => Array.from(people).filter((person) => {
       const { checkbox } = getControls(person);
@@ -26,6 +30,23 @@ function bindAllocationControls(root) {
     };
 
     const getShare = (person) => parseShare(person.dataset.share);
+
+    const allocationIsValid = () => {
+      const selected = selectedPeople();
+      if (!selected.length) return true;
+      const total = selected.reduce((sum, person) => sum + getShare(person), 0);
+      return Math.abs(total - 1) < 0.00005;
+    };
+
+    const updateTotal = () => {
+      if (!totalNode) return;
+      const selected = selectedPeople();
+      const total = selected.reduce((sum, person) => sum + getShare(person), 0);
+      const valid = allocationIsValid();
+      totalNode.textContent = selected.length ? `Summe: ${total.toFixed(4).replace(".", ",")}` : "Keine Zuordnung";
+      totalNode.classList.toggle("is-valid", valid);
+      totalNode.classList.toggle("is-invalid", !valid);
+    };
 
     const setShare = (person, value) => {
       const { number, slider } = getControls(person);
@@ -55,13 +76,18 @@ function bindAllocationControls(root) {
     };
 
     const updatePerson = (person) => {
-      const { checkbox, number, slider } = getControls(person);
+      const { checkbox, number, slider, fixed } = getControls(person);
       const state = person.querySelector("[data-allocation-state]");
       if (!checkbox) return;
 
       person.classList.toggle("is-selected", checkbox.checked);
       if (number) number.disabled = !checkbox.checked;
       if (slider) slider.disabled = !checkbox.checked;
+      if (fixed) {
+        fixed.disabled = !checkbox.checked;
+        if (!checkbox.checked) fixed.checked = false;
+      }
+      person.classList.toggle("is-fixed", checkbox.checked && isFixed(person));
       if (state) {
         state.textContent = checkbox.checked ? "Ausgewählt" : "Nicht zugeordnet";
       }
@@ -118,8 +144,11 @@ function bindAllocationControls(root) {
       const difference = 1 - total;
       if (Math.abs(difference) < 0.0000001) return;
 
-      const target = selected.find((person) => person !== protectedPerson) || selected[0];
+      const target = selected.find((person) => person !== protectedPerson && !isFixed(person))
+        || (protectedPerson && !isFixed(protectedPerson) ? protectedPerson : null);
+      if (!target) return false;
       setShare(target, getShare(target) + difference);
+      return true;
     };
 
     const distributeDeltaEvenly = (targets, delta) => {
@@ -161,8 +190,15 @@ function bindAllocationControls(root) {
         return;
       }
 
-      const others = selected.filter((person) => person !== changedPerson);
-      const maxShare = 1 - minShare * others.length;
+      const fixedOthers = selected.filter((person) => person !== changedPerson && isFixed(person));
+      const adjustableOthers = selected.filter((person) => person !== changedPerson && !isFixed(person));
+      const fixedTotal = fixedOthers.reduce((sum, person) => sum + getShare(person), 0);
+      if (!adjustableOthers.length) {
+        setShare(changedPerson, Math.max(minShare, 1 - fixedTotal));
+        updateTotal();
+        return;
+      }
+      const maxShare = 1 - fixedTotal - minShare * adjustableOthers.length;
       const oldShare = getShare(changedPerson);
       const nextShare = Math.max(minShare, Math.min(maxShare, targetShare));
       const delta = nextShare - oldShare;
@@ -172,28 +208,50 @@ function bindAllocationControls(root) {
       }
 
       setShare(changedPerson, nextShare);
-      distributeDeltaEvenly(others, -delta);
+      distributeDeltaEvenly(adjustableOthers, -delta);
       fixTotal(selected, changedPerson);
+      updateTotal();
     };
 
     people.forEach((person) => {
-      const { checkbox, slider, number } = getControls(person);
+      const { checkbox, slider, number, fixed } = getControls(person);
 
       if (checkbox) {
         checkbox.addEventListener("change", () => {
           const selected = selectedPeople();
           if (checkbox.checked) {
+            const adjustable = selected.filter((entry) => entry !== person && !isFixed(entry));
+            if (selected.length > 1 && !adjustable.length) {
+              checkbox.checked = false;
+              setShare(person, 0);
+              people.forEach((entry) => updatePerson(entry));
+              updateTotal();
+              return;
+            }
             setShare(person, 0);
             rebalanceFromPerson(person, 1 / selected.length);
           } else {
             const removedShare = getShare(person);
+            const adjustable = selected.filter((entry) => !isFixed(entry));
+            if (selected.length && !adjustable.length) {
+              checkbox.checked = true;
+              people.forEach((entry) => updatePerson(entry));
+              updateTotal();
+              return;
+            }
             setShare(person, 0);
-            distributeDeltaEvenly(selected, removedShare);
-            normalizeSelectedShares();
+            distributeDeltaEvenly(adjustable, removedShare);
+            fixTotal(selected);
           }
           people.forEach((entry) => updatePerson(entry));
+          updateTotal();
         });
       }
+
+      fixed?.addEventListener("change", () => {
+        updatePerson(person);
+        updateTotal();
+      });
 
       if (slider && number) {
         const initialValue = parseShare(number.value);
@@ -216,14 +274,20 @@ function bindAllocationControls(root) {
     });
 
     normalizeSelectedShares();
+    updateTotal();
 
     if (allButton) {
       allButton.addEventListener("click", () => {
+        people.forEach((person) => {
+          const { fixed } = getControls(person);
+          if (fixed) fixed.checked = false;
+        });
         checkboxes.forEach((checkbox) => {
           checkbox.checked = true;
         });
         equalizeSelectedShares();
         people.forEach((person) => updatePerson(person));
+        updateTotal();
       });
     }
 
@@ -233,8 +297,18 @@ function bindAllocationControls(root) {
           checkbox.checked = false;
         });
         normalizeSelectedShares();
+        updateTotal();
       });
     }
+
+    const form = allocation.closest("form");
+    form?.addEventListener("submit", (event) => {
+      updateTotal();
+      if (allocationIsValid()) return;
+      event.preventDefault();
+      totalNode?.scrollIntoView({ behavior: "smooth", block: "center" });
+      totalNode?.setAttribute("title", "Die ausgewählten Faktoren müssen zusammen genau 1,0000 ergeben.");
+    });
   });
 }
 

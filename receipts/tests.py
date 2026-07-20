@@ -277,6 +277,8 @@ class ViewTests(ReceiptTestCase):
         self.assertContains(response, 'data-name="REWE"')
         self.assertContains(response, 'data-name="Corner Shop"')
         self.assertContains(response, 'class="market-option-logo is-fallback"', html=False)
+        self.assertContains(response, "data-weight-fixed", count=6)
+        self.assertContains(response, "data-allocation-total", count=2)
 
     def test_market_and_people_stats_are_sorted_by_spending_descending(self):
         person_1 = Person.objects.get(name="Person 1")

@@ -130,7 +130,8 @@
               <button type="button" class="button secondary small" data-select-none>Niemand</button>
             </div>
           </div>
-          <p class="allocation-helper">Personen auswählen und die Faktoren als genaue Anteile über die Regler verteilen. Die Summe bleibt immer 1,0000. Keine Auswahl wird in den Statistiken auf alle aktiven Personen verteilt.</p>
+          <p class="allocation-helper">Personen auswählen und die Faktoren als genaue Anteile verteilen. Fixierte Anteile bleiben unverändert, wenn andere angepasst werden. Die Summe bleibt immer 1,0000.</p>
+          <div class="allocation-total is-valid" data-allocation-total>Summe: 1,0000</div>
           <div class="allocation-grid">
             {% for person in people %}
               <div class="allocation-person" data-allocation-person>
@@ -142,6 +143,11 @@
                 <div class="allocation-weight" data-weight-panel>
                   <div class="allocation-weight-head">
                     <span>Faktor</span>
+                    <label class="weight-fixed-toggle" title="Anteil bei Änderungen anderer Personen beibehalten">
+                      <input type="checkbox" data-weight-fixed>
+                      <span class="weight-fixed-track" aria-hidden="true"></span>
+                      <span>Fixiert</span>
+                    </label>
                     <input class="weight-number" data-weight-number name="item-{{ row.index }}-weight-{{ person.id }}" value="{{ row|weight_for:person|html_decimal }}" inputmode="decimal" aria-label="Faktor {{ person.name }}">
                   </div>
                   <input class="weight-slider" data-weight-slider type="range" min="0" max="1" step="0.0001" value="{{ row|weight_for:person|html_decimal }}" aria-label="Faktor-Regler {{ person.name }}">
@@ -195,7 +201,8 @@
             <button type="button" class="button secondary small" data-select-none>Niemand</button>
           </div>
         </div>
-        <p class="allocation-helper">Personen auswählen und die Faktoren als genaue Anteile über die Regler verteilen. Die Summe bleibt immer 1,0000. Keine Auswahl wird in den Statistiken auf alle aktiven Personen verteilt.</p>
+        <p class="allocation-helper">Personen auswählen und die Faktoren als genaue Anteile verteilen. Fixierte Anteile bleiben unverändert, wenn andere angepasst werden. Die Summe bleibt immer 1,0000.</p>
+        <div class="allocation-total is-valid" data-allocation-total>Summe: 1,0000</div>
         <div class="allocation-grid">
           {% for person in people %}
             <div class="allocation-person" data-allocation-person>
@@ -207,6 +214,11 @@
               <div class="allocation-weight" data-weight-panel>
                 <div class="allocation-weight-head">
                   <span>Faktor</span>
+                  <label class="weight-fixed-toggle" title="Anteil bei Änderungen anderer Personen beibehalten">
+                    <input type="checkbox" data-weight-fixed>
+                    <span class="weight-fixed-track" aria-hidden="true"></span>
+                    <span>Fixiert</span>
+                  </label>
                   <input class="weight-number" data-weight-number name="item-__index__-weight-{{ person.id }}" value="1" inputmode="decimal" aria-label="Faktor {{ person.name }}">
                 </div>
                 <input class="weight-slider" data-weight-slider type="range" min="0" max="1" step="0.0001" value="1" aria-label="Faktor-Regler {{ person.name }}">
