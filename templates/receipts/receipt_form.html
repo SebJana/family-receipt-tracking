@@ -15,7 +15,7 @@
       {% include "includes/icon.html" with name="save" %}
       {{ submit_label }}
     </button>
-    <a class="button secondary" href="{% url 'receipts:receipt_list' %}">
+    <a class="button secondary" href="{% if import_review %}{% url 'receipts:import' %}{% else %}{% url 'receipts:receipt_list' %}{% endif %}">
       {% include "includes/icon.html" with name="x" %}
       Abbrechen
     </a>
@@ -34,6 +34,7 @@
 
 <form id="receipt-edit-form" method="post" class="edit-form" data-row-form>
   {% csrf_token %}
+  {% if import_review %}<input type="hidden" name="mode" value="save_manual">{% endif %}
   <input type="hidden" name="row_count" value="{{ row_count }}" data-row-count>
 
   {% if item_only %}
@@ -84,12 +85,15 @@
 
   <div class="section-head">
     <h2>Artikel</h2>
+    <div class="receipt-editor-summary">
     {% if not item_only %}
-    <button class="button secondary" type="button" data-add-row>
-      {% include "includes/icon.html" with name="plus" %}
-      Zeile hinzufügen
-    </button>
+      <strong class="receipt-editor-total">Summe: <span data-receipt-total aria-live="polite">0,00 €</span></strong>
+      <button class="button secondary" type="button" data-add-row>
+        {% include "includes/icon.html" with name="plus" %}
+        Zeile hinzufügen
+      </button>
     {% endif %}
+    </div>
   </div>
   <p class="allocation-helper">Personen auswählen und die Faktoren als genaue Anteile verteilen. Fixierte Anteile bleiben unverändert, wenn andere angepasst werden. Die Summe bleibt immer 1,0000.</p>
 
@@ -244,7 +248,7 @@
       {% include "includes/icon.html" with name="save" %}
       {{ submit_label }}
     </button>
-    <a class="button secondary" href="{% url 'receipts:receipt_list' %}">
+    <a class="button secondary" href="{% if import_review %}{% url 'receipts:import' %}{% else %}{% url 'receipts:receipt_list' %}{% endif %}">
       {% include "includes/icon.html" with name="x" %}
       Abbrechen
     </a>

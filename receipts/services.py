@@ -6,7 +6,6 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import StringIO
 
-from django.db import transaction
 from django.db.models import Prefetch
 
 from .models import ItemAllocation, Person, Receipt, ReceiptItem
@@ -274,42 +273,6 @@ def round_exact_cents(values_by_key):
     for key, _remainder in remainders[: abs(difference)]:
         rounded[key] += step
     return rounded
-
-
-def save_import_rows(rows):
-    with transaction.atomic():
-        receipts_by_key = {}
-        created_items = 0
-        for row in rows:
-            key = (row.date, row.market, row.buyer_name)
-            receipt = receipts_by_key.get(key)
-            if receipt is None:
-                buyer, _created = Person.objects.get_or_create(
-                    name=row.buyer_name,
-                    defaults={"active": False, "is_deleted": False},
-                )
-                receipt = Receipt.objects.create(
-                    date=row.date,
-                    market=row.market,
-                    buyer=buyer,
-                )
-                receipts_by_key[key] = receipt
-            item = ReceiptItem.objects.create(
-                receipt=receipt,
-                article=row.article,
-                quantity=row.quantity,
-                total_price_cents=row.total_price_cents,
-                imported_raw_row=row.raw_json(),
-            )
-            for name in row.assigned_names:
-                person = Person.objects.get(name=name)
-                ItemAllocation.objects.create(
-                    item=item,
-                    person=person,
-                    weight=row.weights_by_name.get(name, Decimal("1")),
-                )
-            created_items += 1
-    return created_items
 
 
 def build_stats(filters):

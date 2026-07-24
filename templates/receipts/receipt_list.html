@@ -108,54 +108,29 @@
         </span>
       </div>
       <div class="receipt-actions">
-        <strong>{{ receipt.total_cents|cents_euro }}</strong>
+        <strong>{{ receipt.list_total_cents|default:0|cents_euro }}</strong>
         <a class="button secondary small" href="{% url 'receipts:receipt_edit' receipt.id %}">
           {% include "includes/icon.html" with name="edit" %}
           Bearbeiten
         </a>
       </div>
     </div>
-    <div class="table-wrap">
-      <table class="receipt-items-table">
-        <thead>
-          <tr>
-            <th>Artikel</th>
-            <th>Anzahl</th>
-            <th>Gesamtpreis</th>
-            <th>Zuordnung</th>
-            <th class="factors-column">Faktoren</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in receipt.items.all %}
-            <tr class="receipt-item-row" data-href="{% url 'receipts:receipt_edit' receipt.id %}?item={{ item.id }}" tabindex="0" role="link" aria-label="{{ item.article }} bearbeiten">
-              <td>{% if item.category %}<span class="item-category-emoji" title="{{ item.category.name }}">{{ item.category.emoji }}</span>{% else %}<span class="item-category-emoji unknown-category" title="Unbekannt">?</span>{% endif %}{{ item.article|highlight_search:filters.article }}</td>
-              <td>{{ item.quantity|quantity_int }}</td>
-              <td>{{ item.total_price_cents|cents_euro }}</td>
-              <td class="allocation-cell">
-                <span class="allocation-full">{{ item.allocation_text }}</span>
-                <span class="allocation-short">{{ item.allocation_short_text }}</span>
-              </td>
-              <td class="factors-column">
-                {% with factors=item.factor_breakdown %}
-                  {% if factors %}
-                    <div class="factor-visual" aria-label="Ungleiche Aufteilung">
-                      <div class="factor-bar">
-                        {% for factor in factors %}
-                          <span class="factor-segment" style="width: {{ factor.width }}%; background: {{ factor.person.avatar_chart_color }}" data-tooltip="{{ factor.person.name }}: {{ factor.percentage }}%" tabindex="0">
-                            <span class="factor-segment-label">{{ factor.short_name }} {{ factor.percentage }}%</span>
-                          </span>
-                        {% endfor %}
-                      </div>
-                    </div>
-                  {% endif %}
-                {% endwith %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {% if receipt.show_items %}
+      {% include "receipts/_receipt_items.html" with items=receipt.list_items article_search=filters.article %}
+    {% else %}
+      <details class="receipt-items-expander"
+               hx-get="{% url 'receipts:receipt_items' receipt.id %}"
+               hx-trigger="toggle once"
+               hx-target="#receipt-items-{{ receipt.id }}"
+               hx-swap="innerHTML">
+        <summary>
+          <span class="expander-label expander-label-closed">Artikel anzeigen</span>
+          <span class="expander-label expander-label-open">Artikel ausblenden</span>
+          <span class="expander-chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="receipt-items-lazy" id="receipt-items-{{ receipt.id }}"></div>
+      </details>
+    {% endif %}
   </section>
 {% empty %}
   <p class="empty">Noch keine Belege vorhanden.</p>

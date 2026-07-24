@@ -1,0 +1,42 @@
+{% load receipt_extras %}
+<div class="table-wrap">
+  <table class="receipt-items-table">
+    <thead>
+      <tr>
+        <th>Artikel</th>
+        <th>Anzahl</th>
+        <th>Gesamtpreis</th>
+        <th>Zuordnung</th>
+        <th class="factors-column">Faktoren</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr class="receipt-item-row" data-href="{% url 'receipts:receipt_edit' receipt.id %}?item={{ item.id }}" tabindex="0" role="link" aria-label="{{ item.article }} bearbeiten">
+          <td>{% if item.category %}<span class="item-category-emoji" title="{{ item.category.name }}">{{ item.category.emoji }}</span>{% else %}<span class="item-category-emoji unknown-category" title="Unbekannt">?</span>{% endif %}{{ item.article|highlight_search:article_search }}</td>
+          <td>{{ item.quantity|quantity_int }}</td>
+          <td>{{ item.total_price_cents|cents_euro }}</td>
+          <td class="allocation-cell">
+            <span class="allocation-full">{{ item.allocation_text }}</span>
+            <span class="allocation-short">{{ item.allocation_short_text }}</span>
+          </td>
+          <td class="factors-column">
+            {% with factors=item.factor_breakdown %}
+              {% if factors %}
+                <div class="factor-visual" aria-label="Ungleiche Aufteilung">
+                  <div class="factor-bar">
+                    {% for factor in factors %}
+                      <span class="factor-segment" style="width: {{ factor.width }}%; background: {{ factor.person.avatar_chart_color }}" data-tooltip="{{ factor.person.name }}: {{ factor.percentage }}%" tabindex="0">
+                        <span class="factor-segment-label">{{ factor.short_name }} {{ factor.percentage }}%</span>
+                      </span>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+            {% endwith %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

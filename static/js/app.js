@@ -335,6 +335,40 @@ function bindDynamicRows() {
   });
 }
 
+function bindReceiptTotal() {
+  const form = document.querySelector("[data-row-form]");
+  const totalNode = form?.querySelector("[data-receipt-total]");
+  if (!form || !totalNode) return;
+
+  const priceCents = (value) => {
+    const normalized = String(value || "")
+      .replace(/€/g, "")
+      .replace(/\s/g, "")
+      .replace(/\./g, "")
+      .replace(",", ".");
+    const amount = Number(normalized);
+    return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
+  };
+
+  const update = () => {
+    const total = [...form.querySelectorAll("[data-row]:not(.is-deleted)")].reduce((sum, row) => {
+      const price = row.querySelector('input[name$="-price"]');
+      return sum + priceCents(price?.value);
+    }, 0);
+    totalNode.textContent = `${(total / 100).toFixed(2).replace(".", ",")} €`;
+  };
+
+  form.addEventListener("input", (event) => {
+    if (event.target.matches('input[name$="-price"]')) update();
+  });
+  form.addEventListener("click", (event) => {
+    if (event.target.closest("[data-add-row], [data-remove-row], [data-delete-existing]")) {
+      queueMicrotask(update);
+    }
+  });
+  update();
+}
+
 function bindMarketComboboxes(root = document) {
   root.querySelectorAll("[data-market-combobox]").forEach((combobox) => {
     if (combobox.dataset.bound === "true") return;
@@ -637,6 +671,7 @@ function bindLiveFilters() {
         const newTarget = documentCopy.querySelector(targetSelector);
         if (!currentTarget || !newTarget) throw new Error("Filter result target missing");
         currentTarget.innerHTML = newTarget.innerHTML;
+        window.htmx?.process(currentTarget);
         window.history.replaceState({}, "", url);
       } catch (error) {
         if (error.name !== "AbortError") window.location.assign(url);
@@ -1155,6 +1190,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindLiveFilters();
   bindAllocationControls(document);
   bindDynamicRows();
+  bindReceiptTotal();
   bindMarketComboboxes();
   bindRowActions(document);
   bindConfirmForms();

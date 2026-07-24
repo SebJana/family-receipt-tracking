@@ -688,8 +688,20 @@ textarea {
   margin-top: 18px;
 }
 
-.item-row,
-.import-row {
+.receipt-editor-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.receipt-editor-total {
+  color: var(--accent-dark);
+  white-space: nowrap;
+}
+
+.item-row {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px;
@@ -711,16 +723,6 @@ textarea {
   gap: 12px;
   justify-content: space-between;
   margin-bottom: 12px;
-}
-
-.import-row.has-errors {
-  background: #fff8f7;
-  border-color: #f5b5ae;
-}
-
-.import-row.is-ready {
-  background: #f3fbf8;
-  border-color: #a8d8c8;
 }
 
 .row-main {
@@ -994,25 +996,6 @@ th {
   border: 1px dashed var(--line);
   border-radius: 8px;
   padding: 24px;
-}
-
-.row-status {
-  align-items: start;
-  display: flex;
-  gap: 12px;
-  justify-content: flex-start;
-  margin-bottom: 10px;
-}
-
-.import-total {
-  color: var(--accent-dark);
-  white-space: nowrap;
-}
-
-.row-status ul {
-  color: var(--danger);
-  flex: 1;
-  margin: 0;
 }
 
 .status-badge {
@@ -1500,4 +1483,53 @@ th {
 .receipt-item-row:hover,
 .receipt-item-row:focus-visible {
   background: var(--soft);
+}
+.receipt-block:has(.receipt-items-expander) .receipt-head {
+  margin-bottom: 0;
+}
+
+.receipt-items-expander summary {
+  align-items: center;
+  color: var(--accent);
+  cursor: pointer;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 8px;
+  justify-content: center;
+  list-style: none;
+  padding-top: 12px;
+}
+
+.receipt-items-expander summary::-webkit-details-marker {
+  display: none;
+}
+
+.expander-label-open {
+  display: none;
+}
+
+.receipt-items-expander[open] .expander-label-closed {
+  display: none;
+}
+
+.receipt-items-expander[open] .expander-label-open {
+  display: inline;
+}
+
+.expander-chevron {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  height: 7px;
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 160ms ease;
+  width: 7px;
+}
+
+.receipt-items-expander[open] .expander-chevron {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+
+.receipt-items-lazy {
+  padding-top: 10px;
 }

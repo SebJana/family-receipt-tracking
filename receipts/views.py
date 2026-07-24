@@ -6,7 +6,7 @@ import unicodedata
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import Count, ProtectedError
+from django.db.models import Count, Exists, OuterRef, Prefetch, ProtectedError, Sum
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -20,11 +20,9 @@ from .services import (
     format_euro,
     market_choices,
     normalize_market_name,
-    parse_german_date,
     parse_german_decimal,
     parse_import_csv,
     parse_price_cents,
-    save_import_rows,
 )
 
 
@@ -244,9 +242,11 @@ def categories(request):
 
 
 def receipt_list(request):
+    today = timezone.localdate()
+    detail_cutoff = min(today.replace(day=1), today - timedelta(days=31))
     receipts = (
         Receipt.objects.select_related("buyer")
-        .prefetch_related("items__category", "items__allocations__person")
+        .annotate(list_total_cents=Sum("items__total_price_cents"))
         .order_by("-date", "-created_at")
     )
     market = request.GET.get("market", "").strip()
@@ -257,12 +257,23 @@ def receipt_list(request):
     if buyer_id:
         receipts = receipts.filter(buyer_id=buyer_id)
     if article:
-        needle = _normalize_search_text(article)
-        receipts = [
-            receipt
-            for receipt in receipts
-            if any(needle in _normalize_search_text(item.article) for item in receipt.items.all())
-        ]
+        matching_items = ReceiptItem.objects.filter(
+            receipt_id=OuterRef("pk"), article__icontains=article
+        )
+        receipts = receipts.filter(Exists(matching_items))
+
+    item_queryset = ReceiptItem.objects.select_related("category").prefetch_related(
+        "allocations__person"
+    )
+    if not article:
+        item_queryset = item_queryset.filter(receipt__date__gte=detail_cutoff)
+    receipts = list(
+        receipts.prefetch_related(
+            Prefetch("items", queryset=item_queryset, to_attr="list_items")
+        )
+    )
+    for receipt in receipts:
+        receipt.show_items = bool(article) or receipt.date >= detail_cutoff
 
     return render(
         request,
@@ -275,6 +286,20 @@ def receipt_list(request):
             "filters": {"market": market, "buyer": buyer_id, "article": article},
             "format_euro": format_euro,
         },
+    )
+
+
+def receipt_items(request, receipt_id):
+    receipt = get_object_or_404(
+        Receipt.objects.prefetch_related(
+            "items__category", "items__allocations__person"
+        ),
+        pk=receipt_id,
+    )
+    return render(
+        request,
+        "receipts/_receipt_items.html",
+        {"receipt": receipt, "items": receipt.items.all(), "article_search": ""},
     )
 
 
@@ -398,25 +423,31 @@ def receipt_delete(request, receipt_id):
 
 def import_receipts(request):
     buyers = list(_buyer_choices())
+    people = list(_assignable_people())
     markets = _market_choices()
-    if request.method == "POST" and request.POST.get("mode") == "save":
-        rows, errors = _parse_import_save_request(request.POST, markets)
+    if request.method == "POST" and request.POST.get("mode") == "save_manual":
+        receipt_data, rows, errors = _parse_manual_receipt_request(
+            request.POST, people, buyers
+        )
         if not errors:
-            count = save_import_rows(rows)
-            messages.success(request, f"{count} Import-Zeilen wurden gespeichert.")
+            messages.success(request, "Importierter Beleg wurde gespeichert.")
             return redirect("receipts:receipt_list")
         for error in errors:
             messages.error(request, error)
         return render(
             request,
-            "receipts/import.html",
+            "receipts/receipt_form.html",
             {
                 "buyers": buyers,
+                "can_delete_items": False,
+                "form_title": "Import prüfen",
+                "import_review": True,
+                "people": people,
                 "markets": markets,
-                "receipt_import_prompt": RECEIPT_IMPORT_PROMPT,
-                "preview_rows": [_editable_from_parsed(index, row) for index, row in enumerate(rows)],
-                "row_count": len(rows),
-                "import_total": format_euro(sum((row.total_price_cents or 0) for row in rows)),
+                "receipt": receipt_data,
+                "row_count": max(len(rows), 1),
+                "rows": rows or [EditableRow(index=0)],
+                "submit_label": "Import speichern",
             },
         )
 
@@ -426,17 +457,57 @@ def import_receipts(request):
         preview_rows = [_editable_from_parsed(index, row) for index, row in enumerate(rows)]
         if any(row.errors for row in preview_rows):
             messages.warning(request, "Einige Zeilen brauchen Korrekturen vor dem Speichern.")
+        receipt_keys = {
+            (row.date, row.market.casefold(), row.buyer_name.casefold())
+            for row in rows
+            if row.date and row.market and row.buyer_name
+        }
+        if len(receipt_keys) > 1:
+            messages.error(
+                request,
+                "Eine CSV-Vorschau kann nur einen Beleg enthalten. Bitte jeden Beleg separat importieren.",
+            )
+            return render(
+                request,
+                "receipts/import.html",
+                {
+                    "buyers": buyers,
+                    "markets": markets,
+                    "receipt_import_prompt": RECEIPT_IMPORT_PROMPT,
+                    "csv_text": csv_text,
+                },
+            )
+
+        first_row = rows[0] if rows else ParsedImportRow(row_number=1, raw={})
+        buyer = next(
+            (
+                person
+                for person in buyers
+                if person.name.casefold() == first_row.buyer_name.casefold()
+            ),
+            None,
+        )
+        for row in preview_rows:
+            for error in row.errors:
+                messages.error(request, f"Zeile {row.index + 1}: {error}")
         return render(
             request,
-            "receipts/import.html",
+            "receipts/receipt_form.html",
             {
                 "buyers": buyers,
+                "can_delete_items": False,
+                "form_title": "Import prüfen",
+                "import_review": True,
+                "people": people,
                 "markets": markets,
-                "receipt_import_prompt": RECEIPT_IMPORT_PROMPT,
-                "preview_rows": preview_rows,
+                "receipt": {
+                    "date": first_row.date.isoformat() if first_row.date else "",
+                    "market": first_row.market,
+                    "buyer": str(buyer.id) if buyer else "",
+                },
                 "row_count": len(preview_rows),
-                "csv_text": csv_text,
-                "import_total": format_euro(sum((row.total_price_cents or 0) for row in rows)),
+                "rows": preview_rows or [EditableRow(index=0)],
+                "submit_label": "Import speichern",
             },
         )
 
@@ -872,6 +943,18 @@ def _people_by_id(people):
     return {str(person.id): person for person in people}
 
 
+def _known_category_id(article):
+    return (
+        ReceiptItem.objects.filter(
+            article__iexact=article,
+            category__isnull=False,
+        )
+        .order_by("-receipt__date", "-id")
+        .values_list("category_id", flat=True)
+        .first()
+    )
+
+
 def _create_items_for_receipt(receipt, rows, people_by_id):
     people_by_name = {person.name: person for person in people_by_id.values()}
     for row in rows:
@@ -881,6 +964,7 @@ def _create_items_for_receipt(receipt, rows, people_by_id):
             quantity=row.quantity,
             total_price_cents=row.total_price_cents,
             imported_raw_row=row.raw or None,
+            category_id=_known_category_id(row.article),
         )
         for name in row.assigned_names:
             ItemAllocation.objects.create(
@@ -911,6 +995,7 @@ def _sync_items_for_receipt(receipt, rows, people_by_id):
         item.article = row.article
         item.quantity = row.quantity
         item.total_price_cents = row.total_price_cents
+        item.category_id = _known_category_id(row.article)
         item.save()
 
         item.allocations.all().delete()
@@ -967,51 +1052,6 @@ def _editable_from_parsed(index, row):
         raw=row.raw,
     )
     return editable
-
-
-def _parse_import_save_request(post, known_markets=()):
-    rows = []
-    errors = []
-    row_count = int(post.get("row_count", "0") or 0)
-    for index in range(row_count):
-        prefix = f"row-{index}"
-        raw = {
-            "Datum": post.get(f"{prefix}-date", ""),
-            "Einkaufsladen": post.get(f"{prefix}-market", ""),
-            "Artikel": post.get(f"{prefix}-article", ""),
-            "Anzahl": post.get(f"{prefix}-quantity", "1"),
-            "Gesamtpreis": post.get(f"{prefix}-price", ""),
-            "Käufer": post.get(f"{prefix}-buyer", ""),
-        }
-        row = ParsedImportRow(
-            row_number=index + 1,
-            raw=raw,
-            market=normalize_market_name(raw["Einkaufsladen"], known_markets),
-            article=raw["Artikel"].strip(),
-            buyer_name=raw["Käufer"].strip(),
-        )
-        try:
-            row.date = parse_german_date(datetime.strptime(raw["Datum"], "%Y-%m-%d").strftime("%d.%m.%Y"))
-        except ValueError:
-            row.errors.append("Datum fehlt oder ist ungültig.")
-        if not row.market:
-            row.errors.append("Einkaufsladen fehlt.")
-        if not row.article:
-            row.errors.append("Artikel fehlt.")
-        try:
-            row.quantity = parse_german_decimal(raw["Anzahl"], default=Decimal("1")).quantize(Decimal("0.01"))
-        except ValueError as exc:
-            row.errors.append("Anzahl: " + str(exc))
-        try:
-            row.total_price_cents = parse_price_cents(raw["Gesamtpreis"])
-        except ValueError as exc:
-            row.errors.append("Gesamtpreis: " + str(exc))
-        if not row.buyer_name:
-            row.errors.append("Käufer fehlt.")
-        if row.errors:
-            errors.extend([f"Import-Zeile {index + 1}: {error}" for error in row.errors])
-        rows.append(row)
-    return rows, errors
 
 
 def _stats_filters(query):

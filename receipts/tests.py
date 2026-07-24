@@ -432,6 +432,78 @@ class ViewTests(ReceiptTestCase):
         self.assertEqual(ReceiptItem.objects.filter(category=category).count(), 2)
         self.assertEqual(response.json()["remaining"], 0)
 
+    def test_new_matching_article_inherits_known_category(self):
+        buyer = Person.objects.get(name="Person 1")
+        category = Category.objects.create(name="Obst", emoji="🍎")
+        old_receipt = Receipt.objects.create(
+            date="2026-07-01", market="A", buyer=buyer
+        )
+        ReceiptItem.objects.create(
+            receipt=old_receipt,
+            article="Apfel",
+            quantity=1,
+            total_price_cents=100,
+            category=category,
+        )
+
+        response = self.client.post(
+            reverse("receipts:receipt_create"),
+            {
+                "date": "2026-07-02",
+                "market": "B",
+                "buyer": str(buyer.id),
+                "row_count": "1",
+                "item-0-article": "Apfel",
+                "item-0-quantity": "1",
+                "item-0-price": "2,00 €",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        new_item = ReceiptItem.objects.get(receipt__market="B", article="Apfel")
+        self.assertEqual(new_item.category, category)
+
+    def test_renamed_article_uses_category_known_for_new_name(self):
+        buyer = Person.objects.get(name="Person 1")
+        fruit = Category.objects.create(name="Obst", emoji="🍎")
+        other = Category.objects.create(name="Andere", emoji="A")
+        receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)
+        item = ReceiptItem.objects.create(
+            receipt=receipt,
+            article="Old Name",
+            quantity=1,
+            total_price_cents=100,
+            category=other,
+        )
+        known_receipt = Receipt.objects.create(
+            date="2026-07-02", market="B", buyer=buyer
+        )
+        ReceiptItem.objects.create(
+            receipt=known_receipt,
+            article="Apple",
+            quantity=1,
+            total_price_cents=100,
+            category=fruit,
+        )
+
+        response = self.client.post(
+            reverse("receipts:receipt_edit", args=[receipt.id]),
+            {
+                "date": "2026-07-03",
+                "market": "A",
+                "buyer": str(buyer.id),
+                "row_count": "1",
+                "item-0-id": str(item.id),
+                "item-0-article": "Apple",
+                "item-0-quantity": "1",
+                "item-0-price": "1,00 €",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        item.refresh_from_db()
+        self.assertEqual(item.category, fruit)
+
     def test_category_appears_on_receipt_and_in_filtered_stats(self):
         buyer = Person.objects.get(name="Person 1")
         category = Category.objects.create(name="Gemüse", emoji="🥕")
@@ -559,6 +631,56 @@ class ViewTests(ReceiptTestCase):
         self.assertContains(response, f'href="#receipt-{matching_receipt.id}"')
         self.assertContains(response, "person-avatar-small")
 
+    def test_old_receipts_load_items_only_when_expanded(self):
+        buyer = Person.objects.get(name="Person 1")
+        old_receipt = Receipt.objects.create(
+            date=timezone.localdate() - timedelta(days=90),
+            market="Old Market",
+            buyer=buyer,
+        )
+        old_item = ReceiptItem.objects.create(
+            receipt=old_receipt, article="Archived Item", quantity=1, total_price_cents=345
+        )
+
+        response = self.client.get(reverse("receipts:receipt_list"))
+
+        self.assertContains(response, "Old Market")
+        self.assertContains(response, "3,45")
+        self.assertContains(response, "Artikel anzeigen")
+        self.assertNotContains(response, "Archived Item")
+
+        items_response = self.client.get(
+            reverse("receipts:receipt_items", args=[old_receipt.id])
+        )
+        self.assertContains(items_response, "Archived Item")
+        self.assertContains(
+            items_response,
+            f"?item={old_item.id}",
+        )
+
+    def test_item_search_fully_displays_matching_old_receipt(self):
+        buyer = Person.objects.get(name="Person 1")
+        old_receipt = Receipt.objects.create(
+            date=timezone.localdate() - timedelta(days=90),
+            market="Old Search Market",
+            buyer=buyer,
+        )
+        ReceiptItem.objects.create(
+            receipt=old_receipt,
+            article="Historical Pineapple",
+            quantity=1,
+            total_price_cents=500,
+        )
+
+        response = self.client.get(
+            reverse("receipts:receipt_list"), {"article": "pineAPPLE"}
+        )
+
+        self.assertContains(response, "Old Search Market")
+        self.assertContains(response, "Historical ")
+        self.assertContains(response, "Pineapple")
+        self.assertNotContains(response, "Artikel anzeigen")
+
     def test_stats_page_has_no_article_filter(self):
         response = self.client.get(reverse("receipts:stats"))
 
@@ -609,10 +731,13 @@ class ViewTests(ReceiptTestCase):
     def test_import_preview_and_stats_views(self):
         response = self.client.post(reverse("receipts:import"), {"csv_text": SAMPLE_CSV})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Vorschau")
-        self.assertContains(response, "Bereit")
-        self.assertContains(response, "Summe: 6,97 €")
-        self.assertNotContains(response, "Zuordnung und Faktoren")
+        self.assertContains(response, "Import prüfen")
+        self.assertContains(response, 'name="date" value="2026-07-03"')
+        self.assertContains(response, 'name="market" value="Example Market"')
+        self.assertContains(response, 'name="buyer"')
+        self.assertContains(response, 'name="item-0-article" value="Snack A"')
+        self.assertContains(response, "Zuordnung und Faktoren")
+        self.assertContains(response, 'name="mode" value="save_manual"')
 
         stats_response = self.client.get(reverse("receipts:stats"))
         self.assertEqual(stats_response.status_code, 200)
@@ -640,27 +765,29 @@ class ViewTests(ReceiptTestCase):
 
         self.assertContains(response, Person.AVATAR_CHART_COLORS[2])
 
-    def test_import_save_creates_unassigned_items(self):
-        response = self.client.post(reverse("receipts:import"), {"csv_text": SAMPLE_CSV})
-        self.assertEqual(response.status_code, 200)
+    def test_unified_import_review_saves_like_manual_entry(self):
+        person = Person.objects.get(name="Person 1")
 
-        save_response = self.client.post(
+        response = self.client.post(
             reverse("receipts:import"),
             {
-                "mode": "save",
+                "mode": "save_manual",
+                "date": "2026-07-03",
+                "market": "Example Market",
+                "buyer": str(person.id),
                 "row_count": "1",
-                "row-0-date": "2026-07-03",
-                "row-0-market": "Example Market",
-                "row-0-buyer": "Buyer 1",
-                "row-0-article": "Snack A",
-                "row-0-quantity": "1",
-                "row-0-price": "1,99 €",
+                "item-0-article": "Imported Item",
+                "item-0-quantity": "2",
+                "item-0-price": "4,00 €",
+                "item-0-persons": [str(person.id)],
+                f"item-0-weight-{person.id}": "1",
             },
         )
 
-        self.assertEqual(save_response.status_code, 302)
-        self.assertEqual(ReceiptItem.objects.count(), 1)
-        self.assertEqual(ItemAllocation.objects.count(), 0)
+        self.assertEqual(response.status_code, 302)
+        item = ReceiptItem.objects.get(article="Imported Item")
+        self.assertEqual(item.receipt.buyer, person)
+        self.assertTrue(item.allocations.filter(person=person).exists())
 
     def test_receipt_edit_updates_item_and_allocations(self):
         person_1 = Person.objects.get(name="Person 1")
