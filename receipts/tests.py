@@ -720,6 +720,36 @@ class ViewTests(ReceiptTestCase):
         self.assertContains(response, 'class="settlement-transfer-table"')
         self.assertContains(response, 'class="stats-breakdown-row"', count=2)
 
+    def test_forms_expose_action_availability_hooks(self):
+        person = Person.objects.get(name="Person 1")
+        receipt = Receipt.objects.create(
+            date=timezone.localdate(),
+            market="State Market",
+            buyer=person,
+        )
+        ReceiptItem.objects.create(
+            receipt=receipt,
+            article="State Item",
+            quantity=1,
+            total_price_cents=100,
+        )
+
+        edit_response = self.client.get(reverse("receipts:receipt_edit", args=[receipt.id]))
+        people_response = self.client.get(reverse("receipts:people"))
+        categories_response = self.client.get(reverse("receipts:categories"))
+        import_response = self.client.get(reverse("receipts:import"))
+
+        self.assertContains(edit_response, "data-dirty-form")
+        self.assertContains(edit_response, "data-dirty-submit", count=2)
+        self.assertContains(edit_response, "data-dirty-submit disabled", count=2)
+        self.assertContains(people_response, "data-content-form")
+        self.assertContains(people_response, "data-dirty-form")
+        self.assertContains(people_response, "data-state-submit disabled")
+        self.assertContains(categories_response, "data-content-form")
+        self.assertContains(categories_response, "data-dirty-form")
+        self.assertContains(import_response, "data-content-form")
+        self.assertContains(import_response, "data-state-submit disabled")
+
     def test_receipt_create_view(self):
         person_1 = Person.objects.get(name="Person 1")
         person_2 = Person.objects.get(name="Person 2")

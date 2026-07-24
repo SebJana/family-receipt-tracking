@@ -11,23 +11,23 @@
   </div>
 </div>
 
-<form method="post" class="edit-form compact">
+<form method="post" class="edit-form compact" data-content-form>
   {% csrf_token %}
   <input type="hidden" name="action" value="add">
   <label>Neue Person
     <input name="name" placeholder="Name">
   </label>
-  <button class="button primary add-person-button" type="submit">
+  <button class="button primary add-person-button" type="submit" data-state-submit disabled>
     {% include "includes/icon.html" with name="user-plus" %}
     Anlegen
   </button>
 </form>
 
-<form method="post" class="edit-form" enctype="multipart/form-data">
+<form method="post" class="edit-form" enctype="multipart/form-data" data-dirty-form>
   {% csrf_token %}
   <div class="section-head">
     <h2>Aktuelle Personen</h2>
-    <button class="button primary" type="submit" name="action" value="save">
+    <button class="button primary" type="submit" name="action" value="save" data-dirty-submit disabled>
       {% include "includes/icon.html" with name="save" %}
       Speichern
     </button>

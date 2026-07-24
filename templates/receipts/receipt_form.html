@@ -11,7 +11,7 @@
   </div>
   {% if not item_only %}
   <div class="page-actions">
-    <button class="button primary" type="submit" form="receipt-edit-form">
+    <button class="button primary" type="submit" form="receipt-edit-form" {% if not import_review %}data-dirty-submit disabled{% endif %}>
       {% include "includes/icon.html" with name="save" %}
       {{ submit_label }}
     </button>
@@ -32,7 +32,7 @@
   {% endif %}
 </div>
 
-<form id="receipt-edit-form" method="post" class="edit-form" data-row-form>
+<form id="receipt-edit-form" method="post" class="edit-form" data-row-form {% if not import_review %}data-dirty-form{% endif %}>
   {% csrf_token %}
   {% if import_review %}<input type="hidden" name="mode" value="save_manual">{% endif %}
   <input type="hidden" name="row_count" value="{{ row_count }}" data-row-count>
@@ -244,7 +244,7 @@
   {% endif %}
 
   <div class="form-actions">
-    <button class="button primary" type="submit">
+    <button class="button primary" type="submit" {% if not import_review %}data-dirty-submit disabled{% endif %}>
       {% include "includes/icon.html" with name="save" %}
       {{ submit_label }}
     </button>

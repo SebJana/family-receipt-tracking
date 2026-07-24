@@ -39,13 +39,16 @@ function bindAllocationControls(root) {
     };
 
     const updateTotal = () => {
-      if (!totalNode) return;
       const selected = selectedPeople();
       const total = selected.reduce((sum, person) => sum + getShare(person), 0);
       const valid = allocationIsValid();
-      totalNode.textContent = selected.length ? `Summe: ${total.toFixed(4).replace(".", ",")}` : "Keine Zuordnung";
-      totalNode.classList.toggle("is-valid", valid);
-      totalNode.classList.toggle("is-invalid", !valid);
+      if (totalNode) {
+        totalNode.textContent = selected.length ? `Summe: ${total.toFixed(4).replace(".", ",")}` : "Keine Zuordnung";
+        totalNode.classList.toggle("is-valid", valid);
+        totalNode.classList.toggle("is-invalid", !valid);
+      }
+      if (allButton) allButton.disabled = people.length === 0 || selected.length === people.length;
+      if (noneButton) noneButton.disabled = selected.length === 0;
     };
 
     const setShare = (person, value) => {
@@ -769,6 +772,94 @@ function bindConfirmForms() {
   });
 }
 
+function bindFormActionStates() {
+  const isBlankNewRow = (row) => {
+    const id = row.querySelector('input[name$="-id"]')?.value.trim();
+    if (id) return false;
+    const article = row.querySelector('input[name$="-article"]')?.value.trim();
+    const price = row.querySelector('input[name$="-price"]')?.value.trim();
+    const hasAllocation = Boolean(row.querySelector("[data-allocation-checkbox]:checked"));
+    return !article && !price && !hasAllocation;
+  };
+
+  const formState = (form) => Array.from(form.elements)
+    .filter((control) => {
+      if (!control.name || control.name === "csrfmiddlewaretoken" || control.matches("[type='submit'], [type='button']")) return false;
+      if (control.matches("[data-row-count]")) return false;
+      const row = control.closest("[data-row]");
+      return !row || !isBlankNewRow(row);
+    })
+    .map((control) => {
+      if (control.type === "checkbox" || control.type === "radio") {
+        return `${control.name}:${control.checked ? "1" : "0"}:${control.value}`;
+      }
+      if (control.type === "file") {
+        const files = Array.from(control.files || [])
+          .map((file) => `${file.name}:${file.size}:${file.lastModified}`)
+          .join(",");
+        return `${control.name}:${files}`;
+      }
+      return `${control.name}:${control.value}`;
+    })
+    .join("|");
+
+  const receiptActionIsUseful = (form) => {
+    if (!form.matches("[data-row-form]")) return true;
+    return Array.from(form.querySelectorAll("[data-row]")).some((row) => {
+      if (row.classList.contains("is-deleted") && row.querySelector('input[name$="-id"]')?.value.trim()) return true;
+      if (row.classList.contains("is-deleted")) return false;
+      const article = row.querySelector('input[name$="-article"]')?.value.trim();
+      const price = row.querySelector('input[name$="-price"]')?.value.trim();
+      return Boolean(article && price);
+    });
+  };
+
+  const hasMeaningfulContent = (form) => Array.from(form.elements).some((control) => {
+    if (!control.name || control.disabled || control.type === "hidden" || control.matches("[type='submit'], [type='button']")) return false;
+    if (control.type === "file") return Boolean(control.files?.length);
+    if (control.type === "checkbox" || control.type === "radio") return control.checked;
+    return String(control.value || "").trim() !== "";
+  });
+
+  const stateButtons = (form, selector) => Array.from(document.querySelectorAll(selector))
+    .filter((button) => button.form === form);
+
+  document.querySelectorAll("form[data-dirty-form]").forEach((form) => {
+    const initialState = formState(form);
+    const buttons = stateButtons(form, "[data-dirty-submit]");
+    const update = () => {
+      const available = formState(form) !== initialState && form.checkValidity() && receiptActionIsUseful(form);
+      buttons.forEach((button) => { button.disabled = !available; });
+      form.dataset.submitAvailable = available ? "true" : "false";
+    };
+    form.addEventListener("input", update);
+    form.addEventListener("change", update);
+    form.addEventListener("click", () => queueMicrotask(update));
+    form.addEventListener("submit", (event) => {
+      if ((!event.submitter || event.submitter.matches("[data-dirty-submit]")) && form.dataset.submitAvailable !== "true") {
+        event.preventDefault();
+      }
+    });
+    update();
+  });
+
+  document.querySelectorAll("form[data-content-form]").forEach((form) => {
+    const buttons = stateButtons(form, "[data-state-submit]");
+    const update = () => {
+      const available = hasMeaningfulContent(form) && form.checkValidity();
+      buttons.forEach((button) => { button.disabled = !available; });
+      form.dataset.submitAvailable = available ? "true" : "false";
+    };
+    form.addEventListener("input", update);
+    form.addEventListener("change", update);
+    form.addEventListener("click", () => queueMicrotask(update));
+    form.addEventListener("submit", (event) => {
+      if (form.dataset.submitAvailable !== "true") event.preventDefault();
+    });
+    update();
+  });
+}
+
 function bindCopyButtons() {
   document.querySelectorAll("[data-copy-target]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -1066,7 +1157,13 @@ function bindCategoryAssignmentPage() {
   const game = document.querySelector("[data-category-game]");
   const undoButton = game?.querySelector("[data-assignment-undo]");
   const skipButton = game?.querySelector("[data-assignment-skip]");
+  const assignmentTab = document.querySelector('[data-category-tab="assign"]');
   let lastAssignment = null;
+  const setRemaining = (remaining) => {
+    document.querySelector("[data-unassigned-count]").textContent = remaining;
+    document.querySelector(".tab-count").textContent = remaining;
+    if (assignmentTab) assignmentTab.disabled = Number(remaining) === 0;
+  };
   const csrf = document.querySelector('[name="csrfmiddlewaretoken"]')?.value || "";
   async function update(action, article, categoryId = "") {
     const body = new FormData();
@@ -1082,9 +1179,10 @@ function bindCategoryAssignmentPage() {
         const result = await update("clear", row.dataset.article);
         const card = row.closest("[data-category-id]");
         row.remove();
-        card.querySelector("[data-category-count]").textContent = card.querySelectorAll(".category-assigned-item").length;
-        document.querySelector("[data-unassigned-count]").textContent = result.remaining;
-        document.querySelector(".tab-count").textContent = result.remaining;
+        const remainingItems = card.querySelectorAll(".category-assigned-item").length;
+        card.querySelector("[data-category-count]").textContent = remainingItems;
+        card.querySelector("[data-category-items-open]").disabled = remainingItems === 0;
+        setRemaining(result.remaining);
         if (lastAssignment?.article === row.dataset.article) {
           lastAssignment = null;
           undoButton.hidden = true;
@@ -1120,6 +1218,7 @@ function bindCategoryAssignmentPage() {
     row.append(label, remove);
     contents.append(row);
     card.querySelector("[data-category-count]").textContent = card.querySelectorAll(".category-assigned-item").length;
+    card.querySelector("[data-category-items-open]").disabled = false;
     bindCategoryClear(row);
   }
   game?.querySelectorAll("[data-assign-category]").forEach((button) => button.addEventListener("click", async () => {
@@ -1130,8 +1229,7 @@ function bindCategoryAssignmentPage() {
     choices.forEach((choice) => { choice.disabled = true; });
     try {
       const result = await update("assign", article, button.dataset.assignCategory);
-      document.querySelector("[data-unassigned-count]").textContent = result.remaining;
-      document.querySelector(".tab-count").textContent = result.remaining;
+      setRemaining(result.remaining);
       addCategoryItem(button.dataset.assignCategory, article);
       lastAssignment = { article, categoryId: button.dataset.assignCategory };
       undoButton.hidden = false;
@@ -1165,11 +1263,12 @@ function bindCategoryAssignmentPage() {
       const assignedRow = [...(card?.querySelectorAll(".category-assigned-item") || [])].find((row) => row.dataset.article === lastAssignment.article);
       assignedRow?.remove();
       if (card) {
-        card.querySelector("[data-category-count]").textContent = card.querySelectorAll(".category-assigned-item").length;
+        const remainingItems = card.querySelectorAll(".category-assigned-item").length;
+        card.querySelector("[data-category-count]").textContent = remainingItems;
+        card.querySelector("[data-category-items-open]").disabled = remainingItems === 0;
         if (!card.querySelector(".category-assigned-item")) card.querySelector("[data-category-contents]").innerHTML = '<p class="empty" data-category-empty>Noch leer</p>';
       }
-      document.querySelector("[data-unassigned-count]").textContent = result.remaining;
-      document.querySelector(".tab-count").textContent = result.remaining;
+      setRemaining(result.remaining);
       // The restored article is shown again because undo should permit an immediate
       // correction rather than sending the item back into a random queue position.
       game.querySelector("[data-current-article]").textContent = lastAssignment.article;
@@ -1201,6 +1300,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindAvatarDialogs();
   bindCharts();
   bindCategoryAssignmentPage();
+  bindFormActionStates();
 });
 document.addEventListener("click", (event) => {
   const row = event.target.closest(".receipt-item-row[data-href]");

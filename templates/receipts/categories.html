@@ -7,10 +7,10 @@
 </div>
 <div class="category-tabs" role="tablist">
   <button class="category-tab active" type="button" role="tab" data-category-tab="manage" aria-selected="true">Kategorien verwalten</button>
-  <button class="category-tab" type="button" role="tab" data-category-tab="assign" aria-selected="false">Artikel zuordnen <span class="tab-count">{{ unassigned_count }}</span></button>
+  <button class="category-tab" type="button" role="tab" data-category-tab="assign" aria-selected="false" {% if not unassigned_count %}disabled{% endif %}>Artikel zuordnen <span class="tab-count">{{ unassigned_count }}</span></button>
 </div>
 <section data-category-panel="manage">
-  <form class="category-create" method="post">
+  <form class="category-create" method="post" data-content-form>
     {% csrf_token %}<input type="hidden" name="action" value="create">
     <div class="emoji-field">
       <label for="category-emoji">Icon</label>
@@ -22,7 +22,7 @@
       </div>
     </div>
     <label>Name <input name="name" required maxlength="80" placeholder="Kategorie"></label>
-    <button class="button primary" type="submit">Kategorie erstellen</button>
+    <button class="button primary" type="submit" data-state-submit disabled>Kategorie erstellen</button>
   </form>
   <div class="category-board">
     {% for category in categories %}
@@ -32,16 +32,16 @@
           <div class="category-card-actions"><button type="button" class="text-button" data-category-edit-open="category-edit-{{ category.id }}">Bearbeiten</button>{% if category.is_default %}<span class="default-category-label">Standard</span>{% else %}<form method="post" data-confirm="Kategorie löschen?">{% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="category_id" value="{{ category.id }}"><button class="text-button danger" type="submit">Löschen</button></form>{% endif %}</div>
         </div>
         <dialog class="category-edit-dialog" id="category-edit-{{ category.id }}">
-          <form method="post" class="category-edit-form">{% csrf_token %}<input type="hidden" name="action" value="edit"><input type="hidden" name="category_id" value="{{ category.id }}">
+          <form method="post" class="category-edit-form" data-dirty-form>{% csrf_token %}<input type="hidden" name="action" value="edit"><input type="hidden" name="category_id" value="{{ category.id }}">
             <div class="category-dialog-head"><div><h3>Kategorie bearbeiten</h3><p>Ändere Name oder Symbol.</p></div><button type="button" class="dialog-close" data-category-edit-close aria-label="Schließen">×</button></div>
             <label>Name <input name="name" value="{{ category.name }}" required maxlength="80" {% if category.is_default %}readonly{% endif %}></label>
             <div class="emoji-field edit-emoji-field"><label>Icon</label><div class="emoji-input-row"><input name="emoji" value="{{ category.emoji }}" required aria-label="Emoji oder Großbuchstabe" data-edit-category-symbol><button type="button" class="button secondary" data-edit-emoji-toggle>Icon wählen</button></div>
               <div class="emoji-picker" data-edit-emoji-picker hidden><input type="search" data-edit-emoji-search placeholder="Emojis suchen …"><div class="emoji-results">{% for emoji, keywords in emoji_choices %}<button type="button" data-keywords="{{ keywords }}" aria-label="Emoji {{ emoji }}">{{ emoji }}</button>{% endfor %}</div><p class="emoji-no-results" data-edit-emoji-no-results hidden>Keine passenden Emojis</p></div>
             </div>
-            <div class="category-edit-actions"><button type="button" class="button secondary" data-category-edit-close>Abbrechen</button><button type="submit" class="button primary">Speichern</button></div>
+            <div class="category-edit-actions"><button type="button" class="button secondary" data-category-edit-close>Abbrechen</button><button type="submit" class="button primary" data-dirty-submit disabled>Speichern</button></div>
           </form>
         </dialog>
-        <button class="button secondary category-items-open" type="button" data-category-items-open="category-items-{{ category.id }}"><span data-category-count>{{ category.grouped_items|length }}</span> Artikel verwalten</button>
+        <button class="button secondary category-items-open" type="button" data-category-items-open="category-items-{{ category.id }}" {% if not category.grouped_items %}disabled{% endif %}><span data-category-count>{{ category.grouped_items|length }}</span> Artikel verwalten</button>
         <dialog class="category-items-dialog" id="category-items-{{ category.id }}">
           <div class="category-dialog-head"><div><h3>{{ category.emoji }} {{ category.name }}</h3><p>Artikel suchen und aus der Kategorie entfernen.</p></div><button type="button" class="dialog-close" data-category-items-close aria-label="Schließen">×</button></div>
           <input class="category-item-search" type="search" data-category-item-search placeholder="Artikel suchen …" aria-label="Artikel in {{ category.name }} suchen">
