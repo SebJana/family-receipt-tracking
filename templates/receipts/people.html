@@ -46,7 +46,7 @@
       <tbody>
         {% for person in active_people %}
           <tr>
-            <td class="avatar-cell">
+            <td class="avatar-cell people-avatar-cell">
               <span class="avatar-cell-controls">
                 {% include "includes/person_avatar.html" with person=person %}
                 <button class="button secondary small avatar-open-button" type="button" data-avatar-open="avatar-dialog-{{ person.id }}">Ändern</button>
@@ -87,21 +87,21 @@
                 </div>
               </dialog>
             </td>
-            <td class="people-name-column"><input name="name-{{ person.id }}" value="{{ person.name }}"></td>
-            <td>
+            <td class="people-name-column"><input name="name-{{ person.id }}" value="{{ person.name }}" aria-label="Name von {{ person.name }}"></td>
+            <td class="people-status-cell">
               {% if person.active %}
                 <span class="status-badge ready">Aktiv</span>
               {% else %}
                 <span class="status-badge neutral">Inaktiv</span>
               {% endif %}
             </td>
-            <td>
+            <td class="people-active-cell">
               <label class="toggle">
-                <input type="checkbox" name="active-{{ person.id }}" {% if person.active %}checked{% endif %}>
+                <input type="checkbox" name="active-{{ person.id }}" aria-label="{{ person.name }} aktiv" {% if person.active %}checked{% endif %}>
                 <span></span>
               </label>
             </td>
-            <td>
+            <td class="people-action-cell">
               <button class="button danger small" type="submit" name="delete_person" value="{{ person.id }}">
                 {% include "includes/icon.html" with name="trash" %}
                 Löschen
@@ -135,8 +135,8 @@
           {% for person in deleted_people %}
             <tr class="muted-row">
               <td class="people-name-column">{{ person.name }}</td>
-              <td><span class="status-badge error">Gelöscht</span></td>
-              <td>
+              <td class="people-status-cell"><span class="status-badge error">Gelöscht</span></td>
+              <td class="people-action-cell">
                 <div class="people-actions">
                 <form method="post">
                   {% csrf_token %}

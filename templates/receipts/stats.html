@@ -66,12 +66,12 @@
 
 <div class="stats-grid">
   {% if single_month %}
-    <section class="chart-panel month-total-card">
+    <section class="chart-panel month-total-card stats-summary-total">
       <span class="month-total-label">Ausgaben im {{ single_month|date:"F Y" }}</span>
       <strong class="month-total-value">{{ stats.monthly.total }}</strong>
     </section>
   {% else %}
-    <section class="chart-panel">
+    <section class="chart-panel wide stats-trend-panel">
       <h2>Ausgaben pro Monat</h2>
       <canvas data-chart="bar" data-source="monthly-data"></canvas>
       <table>
@@ -87,7 +87,7 @@
   {% endif %}
 
   {% if show_settlement and not filters.person %}
-    <section class="chart-panel wide settlement-panel">
+    <section class="chart-panel settlement-panel">
       <div class="section-head">
         <div>
           <h2>Monatsausgleich</h2>
@@ -95,14 +95,14 @@
         </div>
       </div>
       <div class="table-wrap">
-        <table>
+        <table class="settlement-balance-table">
           <thead>
             <tr><th>Person</th><th>Bezahlt</th><th>Eigener Anteil</th><th>Saldo</th></tr>
           </thead>
           <tbody>
             {% for row in stats.settlement.rows %}
               <tr>
-                <td>
+                <td data-label="Person">
                   <span class="person-stat-label">
                     {% if row.avatar.url %}
                       <img class="person-avatar person-avatar-small {% if row.avatar.is_preset %}animal-avatar{% endif %}" src="{{ row.avatar.url }}" alt="">
@@ -112,12 +112,12 @@
                     {{ row.name }}
                   </span>
                 </td>
-                <td>{{ row.paid }}</td>
-                <td>{{ row.owed }}</td>
-                <td class="{% if row.balance_cents > 0 %}balance-positive{% elif row.balance_cents < 0 %}balance-negative{% endif %}">{{ row.balance }}</td>
+                <td data-label="Bezahlt">{{ row.paid }}</td>
+                <td data-label="Eigener Anteil">{{ row.owed }}</td>
+                <td data-label="Saldo" class="{% if row.balance_cents > 0 %}balance-positive{% elif row.balance_cents < 0 %}balance-negative{% endif %}">{{ row.balance }}</td>
               </tr>
             {% empty %}
-              <tr><td colspan="4">Keine Einkäufe in diesem Monat.</td></tr>
+              <tr class="stats-empty-row"><td colspan="4">Keine Einkäufe in diesem Monat.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -125,13 +125,13 @@
 
       <h3>Zu zahlen</h3>
       <div class="table-wrap">
-        <table>
+        <table class="settlement-transfer-table">
           <thead><tr><th>Von</th><th>An</th><th>Betrag</th></tr></thead>
           <tbody>
             {% for transfer in stats.settlement.transfers %}
-              <tr><td>{{ transfer.from }}</td><td>{{ transfer.to }}</td><td><strong>{{ transfer.amount }}</strong></td></tr>
+              <tr><td data-label="Von">{{ transfer.from }}</td><td data-label="An">{{ transfer.to }}</td><td data-label="Betrag"><strong>{{ transfer.amount }}</strong></td></tr>
             {% empty %}
-              <tr><td colspan="3">Alles ausgeglichen.</td></tr>
+              <tr class="stats-empty-row"><td colspan="3">Alles ausgeglichen.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -139,77 +139,83 @@
     </section>
   {% endif %}
 
-  <section class="chart-panel">
-    <h2>Ausgaben nach Markt</h2>
-    {% static "images/market-logos/" as market_logo_base %}
-    <canvas data-chart="pie" data-source="market-data" data-logo-base="{{ market_logo_base }}"></canvas>
-    <table>
-      <tbody>
-        {% for label, value in stats.markets.rows %}
-          <tr><td>{{ label }}</td><td>{{ value }}</td></tr>
-        {% empty %}
-          <tr><td colspan="2">Keine Daten</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
+  <div class="stats-breakdown-row">
+    <section class="chart-panel stats-chart-card">
+      <h2>Ausgaben nach Markt</h2>
+      {% static "images/market-logos/" as market_logo_base %}
+      <canvas data-chart="pie" data-source="market-data" data-logo-base="{{ market_logo_base }}"></canvas>
+      <table>
+        <tbody>
+          {% for label, value in stats.markets.rows %}
+            <tr><td>{{ label }}</td><td>{{ value }}</td></tr>
+          {% empty %}
+            <tr><td colspan="2">Keine Daten</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    {% if not filters.person %}
+    <section class="chart-panel stats-chart-card">
+      <h2>Anteil pro Person</h2>
+      <canvas data-chart="pie" data-source="people-data" data-person-avatars></canvas>
+      <table>
+        <tbody>
+          {% for row in stats.people_table_rows %}
+            <tr>
+              <td>
+                <span class="person-stat-label">
+                  {% if row.avatar.url %}
+                    <img class="person-avatar person-avatar-small {% if row.avatar.is_preset %}animal-avatar{% endif %}" src="{{ row.avatar.url }}" alt="">
+                  {% else %}
+                    <span class="person-avatar person-avatar-small person-avatar-initials" style="background: {{ row.avatar.color }}">{{ row.avatar.initials }}</span>
+                  {% endif %}
+                  {{ row.label }}
+                </span>
+              </td>
+              <td>{{ row.value }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2">Keine Daten</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+  </div>
 
   {% if not filters.person %}
-  <section class="chart-panel wide">
+  <section class="chart-panel wide stats-trend-panel">
     <h2>Personen pro Monat</h2>
     <canvas data-chart="stacked" data-source="person-month-data"></canvas>
   </section>
-
-  <section class="chart-panel">
-    <h2>Anteil pro Person</h2>
-    <canvas data-chart="pie" data-source="people-data" data-person-avatars></canvas>
-    <table>
-      <tbody>
-        {% for row in stats.people_table_rows %}
-          <tr>
-            <td>
-              <span class="person-stat-label">
-                {% if row.avatar.url %}
-                  <img class="person-avatar person-avatar-small {% if row.avatar.is_preset %}animal-avatar{% endif %}" src="{{ row.avatar.url }}" alt="">
-                {% else %}
-                  <span class="person-avatar person-avatar-small person-avatar-initials" style="background: {{ row.avatar.color }}">{{ row.avatar.initials }}</span>
-                {% endif %}
-                {{ row.label }}
-              </span>
-            </td>
-            <td>{{ row.value }}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="2">Keine Daten</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
   {% endif %}
 
-  {% if not filters.category %}
-  <section class="chart-panel">
-    <h2>Ausgaben nach Kategorie</h2>
-    <canvas data-chart="pie" data-source="category-data" data-category-emojis></canvas>
-    <table><tbody>
-      {% for label, value in stats.categories.rows %}<tr><td>{{ label }}</td><td>{{ value }}</td></tr>
-      {% empty %}<tr><td colspan="2">Keine Daten</td></tr>{% endfor %}
-    </tbody></table>
-  </section>
-  {% endif %}
+  <div class="stats-breakdown-row">
+    {% if not filters.category %}
+    <section class="chart-panel stats-chart-card">
+      <h2>Ausgaben nach Kategorie</h2>
+      <canvas data-chart="pie" data-source="category-data" data-category-emojis></canvas>
+      <table><tbody>
+        {% for label, value in stats.categories.rows %}<tr><td>{{ label }}</td><td>{{ value }}</td></tr>
+        {% empty %}<tr><td colspan="2">Keine Daten</td></tr>{% endfor %}
+      </tbody></table>
+    </section>
+    {% endif %}
 
-  <section class="chart-panel">
-    <h2>Top Artikel</h2>
-    <table>
-      <thead><tr><th>Artikel</th><th>Betrag</th></tr></thead>
-      <tbody>
-        {% for article, value in stats.top_articles %}
-          <tr><td>{{ article }}</td><td>{{ value }}</td></tr>
-        {% empty %}
-          <tr><td colspan="2">Keine Daten</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
+    <section class="chart-panel stats-chart-card">
+      <h2>Top Artikel</h2>
+      <table>
+        <thead><tr><th>Artikel</th><th>Betrag</th></tr></thead>
+        <tbody>
+          {% for article, value in stats.top_articles %}
+            <tr><td>{{ article }}</td><td>{{ value }}</td></tr>
+          {% empty %}
+            <tr><td colspan="2">Keine Daten</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
 </div>
 {% endblock %}

@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Belege{% endblock %}</title>
   <link rel="icon" href="{% static 'images/logo/receipt-euro.svg' %}" type="image/svg+xml">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260724-editor-total">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20260724-stats-layout">
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
   <script src="{% static 'js/app.js' %}?v=20260724-editor-total" defer></script>
@@ -17,12 +17,12 @@
     <a class="brand" href="{% url 'receipts:receipt_list' %}" aria-label="Belegverwaltung">
       <img src="{% static 'images/logo/receipt-euro.svg' %}" alt="" width="32" height="32">
     </a>
-    <nav>
-      <a href="{% url 'receipts:receipt_list' %}">Belege</a>
-      <a href="{% url 'receipts:import' %}">Import</a>
-      <a href="{% url 'receipts:stats' %}">Statistiken</a>
-      <a href="{% url 'receipts:people' %}">Personen</a>
-      <a href="{% url 'receipts:categories' %}">Kategorien</a>
+    <nav aria-label="Hauptnavigation">
+      <a href="{% url 'receipts:receipt_list' %}" {% if request.resolver_match.url_name == "receipt_list" or request.resolver_match.url_name == "receipt_create" or request.resolver_match.url_name == "receipt_edit" %}aria-current="page"{% endif %}>Belege</a>
+      <a href="{% url 'receipts:import' %}" {% if request.resolver_match.url_name == "import" %}aria-current="page"{% endif %}>Import</a>
+      <a href="{% url 'receipts:stats' %}" {% if request.resolver_match.url_name == "stats" %}aria-current="page"{% endif %}>Statistiken</a>
+      <a href="{% url 'receipts:people' %}" {% if request.resolver_match.url_name == "people" %}aria-current="page"{% endif %}>Personen</a>
+      <a href="{% url 'receipts:categories' %}" {% if request.resolver_match.url_name == "categories" %}aria-current="page"{% endif %}>Kategorien</a>
     </nav>
   </header>
 

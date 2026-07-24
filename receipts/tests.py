@@ -279,7 +279,8 @@ class ViewTests(ReceiptTestCase):
         self.assertContains(response, 'data-name="Corner Shop"')
         self.assertContains(response, 'class="market-option-logo is-fallback"', html=False)
         self.assertContains(response, "data-weight-fixed", count=6)
-        self.assertContains(response, "data-allocation-total", count=2)
+        self.assertNotContains(response, "data-allocation-total")
+        self.assertContains(response, "data-receipt-total", count=1)
 
     def test_market_and_people_stats_are_sorted_by_spending_descending(self):
         person_1 = Person.objects.get(name="Person 1")
@@ -697,6 +698,27 @@ class ViewTests(ReceiptTestCase):
         self.assertEqual(response.context["filters"]["date_from"], month_start.isoformat())
         self.assertEqual(response.context["filters"]["date_to"], month_end.isoformat())
         self.assertEqual(response.context["single_month"], month_start)
+
+    def test_stats_page_has_responsive_settlement_and_grouped_breakdowns(self):
+        person = Person.objects.get(name="Person 1")
+        receipt = Receipt.objects.create(
+            date=timezone.localdate(),
+            market="Responsive Market",
+            buyer=person,
+        )
+        ReceiptItem.objects.create(
+            receipt=receipt,
+            article="Responsive Item",
+            quantity=1,
+            total_price_cents=100,
+        )
+
+        response = self.client.get(reverse("receipts:stats"))
+
+        self.assertContains(response, 'class="settlement-balance-table"')
+        self.assertContains(response, 'data-label="Saldo"')
+        self.assertContains(response, 'class="settlement-transfer-table"')
+        self.assertContains(response, 'class="stats-breakdown-row"', count=2)
 
     def test_receipt_create_view(self):
         person_1 = Person.objects.get(name="Person 1")

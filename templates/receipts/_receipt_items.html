@@ -13,10 +13,10 @@
     <tbody>
       {% for item in items %}
         <tr class="receipt-item-row" data-href="{% url 'receipts:receipt_edit' receipt.id %}?item={{ item.id }}" tabindex="0" role="link" aria-label="{{ item.article }} bearbeiten">
-          <td>{% if item.category %}<span class="item-category-emoji" title="{{ item.category.name }}">{{ item.category.emoji }}</span>{% else %}<span class="item-category-emoji unknown-category" title="Unbekannt">?</span>{% endif %}{{ item.article|highlight_search:article_search }}</td>
-          <td>{{ item.quantity|quantity_int }}</td>
-          <td>{{ item.total_price_cents|cents_euro }}</td>
-          <td class="allocation-cell">
+          <td data-label="Artikel">{% if item.category %}<span class="item-category-emoji" title="{{ item.category.name }}">{{ item.category.emoji }}</span>{% else %}<span class="item-category-emoji unknown-category" title="Unbekannt">?</span>{% endif %}{{ item.article|highlight_search:article_search }}</td>
+          <td data-label="Anzahl">{{ item.quantity|quantity_int }}</td>
+          <td data-label="Gesamtpreis">{{ item.total_price_cents|cents_euro }}</td>
+          <td class="allocation-cell" data-label="Zuordnung">
             <span class="allocation-full">{{ item.allocation_text }}</span>
             <span class="allocation-short">{{ item.allocation_short_text }}</span>
           </td>
