@@ -331,6 +331,11 @@ def receipt_edit(request, receipt_id):
     people = list(_assignable_people())
     buyers = list(_buyer_choices(receipt.buyer))
     markets = _market_choices()
+    item_id = request.GET.get("item", "").strip()
+    selected_item = None
+    if item_id:
+        selected_item = get_object_or_404(receipt.items.all(), pk=item_id)
+    item_only = selected_item is not None
     if request.method == "POST":
         receipt_data, rows, errors = _update_receipt_from_request(receipt, request.POST, people, buyers)
         if not errors:
@@ -344,7 +349,8 @@ def receipt_edit(request, receipt_id):
             {
                 "buyers": buyers,
                 "can_delete_items": True,
-                "form_title": "Beleg bearbeiten",
+                "form_title": "Artikel bearbeiten" if item_only else "Beleg bearbeiten",
+                "item_only": item_only,
                 "people": people,
                 "markets": markets,
                 "receipt": receipt_data,
@@ -356,13 +362,16 @@ def receipt_edit(request, receipt_id):
         )
 
     rows = _editable_rows_from_receipt(receipt)
+    if item_only:
+        rows = [row for row in rows if row.item_id == selected_item.id]
     return render(
         request,
         "receipts/receipt_form.html",
         {
             "buyers": buyers,
             "can_delete_items": True,
-            "form_title": "Beleg bearbeiten",
+            "form_title": "Artikel bearbeiten" if item_only else "Beleg bearbeiten",
+            "item_only": item_only,
             "people": people,
             "markets": markets,
             "receipt": {
@@ -439,7 +448,19 @@ def import_receipts(request):
 
 
 def stats(request):
-    filters = _stats_filters(request.GET)
+    today = timezone.localdate()
+    current_month_start = today.replace(day=1)
+    next_month_start = (current_month_start + timedelta(days=32)).replace(day=1)
+    current_month_end = next_month_start - timedelta(days=1)
+    previous_month_end = current_month_start - timedelta(days=1)
+    previous_month_start = previous_month_end.replace(day=1)
+
+    filter_query = request.GET.copy()
+    if "date_from" not in filter_query and "date_to" not in filter_query:
+        filter_query["date_from"] = current_month_start.isoformat()
+        filter_query["date_to"] = current_month_end.isoformat()
+
+    filters = _stats_filters(filter_query)
     stats_data = build_stats(filters)
     stats_data["markets"]["logos"] = [
         market_logo(label) for label in stats_data["markets"]["labels"]
@@ -479,12 +500,6 @@ def stats(request):
         if date_from and date_to and (date_from.year, date_from.month) == (date_to.year, date_to.month)
         else None
     )
-    today = timezone.localdate()
-    current_month_start = today.replace(day=1)
-    next_month_start = (current_month_start + timedelta(days=32)).replace(day=1)
-    current_month_end = next_month_start - timedelta(days=1)
-    previous_month_end = current_month_start - timedelta(days=1)
-    previous_month_start = previous_month_end.replace(day=1)
     show_settlement = (date_from, date_to) in {
         (current_month_start, current_month_end),
         (previous_month_start, previous_month_end),
@@ -497,7 +512,7 @@ def stats(request):
             "buyers": Person.objects.all(),
             "categories": Category.objects.all(),
             "markets": Receipt.objects.order_by("market").values_list("market", flat=True).distinct(),
-            "filters": request.GET,
+            "filters": filter_query,
             "month_presets": {
                 "current_from": current_month_start.isoformat(),
                 "current_to": current_month_end.isoformat(),

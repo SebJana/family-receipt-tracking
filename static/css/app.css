@@ -753,27 +753,6 @@ textarea {
   margin: 0 0 10px;
 }
 
-.allocation-total {
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 750;
-  margin-bottom: 10px;
-  padding: 4px 9px;
-  width: fit-content;
-}
-
-.allocation-total.is-valid {
-  background: #dff5eb;
-  color: var(--accent-dark);
-}
-
-.allocation-total.is-invalid {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-
 .allocation-grid {
   display: grid;
   gap: 10px;
@@ -1507,4 +1486,18 @@ th {
   .receipt-jump-top {
     display: none;
   }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.receipt-jump-menu) {
+    scroll-behavior: smooth;
+  }
+}
+
+.receipt-item-row {
+  cursor: pointer;
+}
+
+.receipt-item-row:hover,
+.receipt-item-row:focus-visible {
+  background: var(--soft);
 }

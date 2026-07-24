@@ -128,7 +128,7 @@
         </thead>
         <tbody>
           {% for item in receipt.items.all %}
-            <tr>
+            <tr class="receipt-item-row" data-href="{% url 'receipts:receipt_edit' receipt.id %}?item={{ item.id }}" tabindex="0" role="link" aria-label="{{ item.article }} bearbeiten">
               <td>{% if item.category %}<span class="item-category-emoji" title="{{ item.category.name }}">{{ item.category.emoji }}</span>{% else %}<span class="item-category-emoji unknown-category" title="Unbekannt">?</span>{% endif %}{{ item.article|highlight_search:filters.article }}</td>
               <td>{{ item.quantity|quantity_int }}</td>
               <td>{{ item.total_price_cents|cents_euro }}</td>

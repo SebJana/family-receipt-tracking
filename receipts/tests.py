@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from pathlib import Path
 import tempfile
@@ -6,6 +6,7 @@ import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import Category, ItemAllocation, Person, Receipt, ReceiptItem
 from .services import (
@@ -564,6 +565,17 @@ class ViewTests(ReceiptTestCase):
         self.assertNotContains(response, 'name="article"')
         self.assertNotContains(response, "Filter anwenden")
 
+    def test_stats_page_defaults_to_current_month(self):
+        today = timezone.localdate()
+        month_start = today.replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+
+        response = self.client.get(reverse("receipts:stats"))
+
+        self.assertEqual(response.context["filters"]["date_from"], month_start.isoformat())
+        self.assertEqual(response.context["filters"]["date_to"], month_end.isoformat())
+        self.assertEqual(response.context["single_month"], month_start)
+
     def test_receipt_create_view(self):
         person_1 = Person.objects.get(name="Person 1")
         person_2 = Person.objects.get(name="Person 2")
@@ -690,6 +702,43 @@ class ViewTests(ReceiptTestCase):
         self.assertEqual(item.article, "Updated Item")
         self.assertEqual(item.total_price_cents, -25)
         self.assertEqual(ItemAllocation.objects.count(), 2)
+
+    def test_clickable_receipt_item_opens_focused_item_editor(self):
+        person = Person.objects.get(name="Person 1")
+        receipt = Receipt.objects.create(
+            date="2026-07-03",
+            market="Example Market",
+            buyer=person,
+        )
+        selected = ReceiptItem.objects.create(
+            receipt=receipt, article="Selected Item", quantity=1, total_price_cents=100
+        )
+        ReceiptItem.objects.create(
+            receipt=receipt, article="Other Item", quantity=1, total_price_cents=200
+        )
+
+        list_response = self.client.get(reverse("receipts:receipt_list"))
+        edit_url = reverse("receipts:receipt_edit", args=[receipt.id])
+        self.assertContains(list_response, f'data-href="{edit_url}?item={selected.id}"')
+
+        edit_response = self.client.get(edit_url, {"item": selected.id})
+        self.assertContains(edit_response, "Artikel bearbeiten")
+        self.assertContains(edit_response, "Selected Item")
+        self.assertNotContains(edit_response, "Other Item")
+        self.assertNotContains(edit_response, "Zeile hinzufügen")
+
+    def test_focused_item_editor_rejects_item_from_another_receipt(self):
+        person = Person.objects.get(name="Person 1")
+        receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=person)
+        other_receipt = Receipt.objects.create(date="2026-07-04", market="B", buyer=person)
+        other_item = ReceiptItem.objects.create(
+            receipt=other_receipt, article="Other", quantity=1, total_price_cents=100
+        )
+
+        response = self.client.get(
+            reverse("receipts:receipt_edit", args=[receipt.id]), {"item": other_item.id}
+        )
+        self.assertEqual(response.status_code, 404)
 
     def test_receipt_edit_deletes_item(self):
         person_1 = Person.objects.get(name="Person 1")
