@@ -4,3 +4,8 @@ services:
     image: family-receipt-tracking:local
     build: .
     pull_policy: never
+
+  backup:
+    image: family-receipt-tracking:local
+    build: .
+    pull_policy: never

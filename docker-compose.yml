@@ -1,25 +1,40 @@
+x-app-service: &app-service
+  image: ghcr.io/sebjana/family-receipt-tracking:latest
+  pull_policy: always
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-change-me}
+    DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS: ${DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS:-none}
+    TZ: ${TZ:-Europe/Berlin}
+    SQLITE_PATH: ${SQLITE_PATH:-/app/data/app.sqlite3}
+    DATABASE_BACKUP_DIR: /app/backups
+    DATABASE_BACKUP_RETENTION_DAYS: ${DATABASE_BACKUP_RETENTION_DAYS:-30}
+    DATABASE_BACKUP_INTERVAL_SECONDS: ${DATABASE_BACKUP_INTERVAL_SECONDS:-86400}
+    GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+    GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+    GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-60}
+  volumes:
+    - receipt_data:/app/data
+
 services:
   web:
-    image: ghcr.io/sebjana/family-receipt-tracking:latest
-    pull_policy: always
-    restart: unless-stopped
+    <<: *app-service
     ports:
       - "6767:8000"
-    env_file:
-      - path: .env
-        required: false
-    environment:
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-only-change-me}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
-      DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS: ${DJANGO_DATA_UPLOAD_MAX_NUMBER_FIELDS:-none}
-      TZ: ${TZ:-Europe/Berlin}
-      SQLITE_PATH: ${SQLITE_PATH:-/app/data/app.sqlite3}
-      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
-      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
-      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-60}
+
+  backup:
+    <<: *app-service
+    command: ["python", "manage.py", "backup_worker"]
+    depends_on:
+      - web
     volumes:
       - receipt_data:/app/data
+      - ${DATABASE_BACKUP_HOST_DIR:-./backups}:/app/backups
 
 volumes:
   receipt_data:

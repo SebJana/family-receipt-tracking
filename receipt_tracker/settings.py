@@ -63,6 +63,18 @@ DATABASES = {
         "NAME": str(DATABASE_PATH),
     }
 }
+DATABASE_BACKUP_DIR = Path(
+    os.environ.get(
+        "DATABASE_BACKUP_DIR",
+        str(DATABASE_PATH.parent / "backups"),
+    )
+)
+DATABASE_BACKUP_RETENTION_DAYS = int(
+    os.environ.get("DATABASE_BACKUP_RETENTION_DAYS", "30")
+)
+DATABASE_BACKUP_INTERVAL_SECONDS = int(
+    os.environ.get("DATABASE_BACKUP_INTERVAL_SECONDS", "86400")
+)
 
 AUTH_PASSWORD_VALIDATORS = []
 

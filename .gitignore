@@ -15,6 +15,7 @@ env/
 
 # Django/local runtime
 data/
+backups/
 staticfiles/
 *.sqlite3
 *.log
