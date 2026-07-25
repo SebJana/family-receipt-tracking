@@ -10,6 +10,7 @@ from django.db.models import Count, Exists, OuterRef, Prefetch, ProtectedError, 
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.utils import timezone
 
 from .models import Category, ItemAllocation, Person, Receipt, ReceiptItem
@@ -27,7 +28,12 @@ from .services import (
 
 
 AVATAR_PRESETS = [
-    {"value": value, "filename": f"avatar-{value.removeprefix('preset-')}.svg", "label": label}
+    {
+        "value": value,
+        "filename": f"avatar-{value.removeprefix('preset-')}.svg",
+        "static_path": f"images/avatars/avatar-{value.removeprefix('preset-')}.svg",
+        "label": label,
+    }
     for value, label in Person.AVATAR_CHOICES
     if value.startswith("preset-")
 ]
@@ -389,6 +395,9 @@ def receipt_edit(request, receipt_id):
     rows = _editable_rows_from_receipt(receipt)
     if item_only:
         rows = [row for row in rows if row.item_id == selected_item.id]
+        # A focused editor submits a one-row form. Reindex the selected receipt
+        # row so its field names match row_count=1 and the parser reads item-0-*.
+        rows[0].index = 0
     return render(
         request,
         "receipts/receipt_form.html",
@@ -533,8 +542,12 @@ def stats(request):
 
     filters = _stats_filters(filter_query)
     stats_data = build_stats(filters)
-    stats_data["markets"]["logos"] = [
+    stats_data["markets"]["logo_keys"] = [
         market_logo(label) for label in stats_data["markets"]["labels"]
+    ]
+    stats_data["markets"]["logos"] = [
+        static(f"images/market-logos/{filename}") if filename else ""
+        for filename in stats_data["markets"]["logo_keys"]
     ]
     avatar_names = set(stats_data["people"]["labels"])
     avatar_names.update(row["name"] for row in stats_data["settlement"]["rows"])

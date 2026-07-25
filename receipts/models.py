@@ -1,10 +1,10 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.templatetags.static import static
 
 
 class Person(models.Model):
@@ -64,7 +64,9 @@ class Person(models.Model):
         if self.avatar_choice == "upload" and self.avatar_upload:
             return self.avatar_upload.url
         if self.avatar_choice.startswith("preset-"):
-            return f"{settings.STATIC_URL}images/avatars/avatar-{self.avatar_choice.removeprefix('preset-')}.svg"
+            return static(
+                f"images/avatars/avatar-{self.avatar_choice.removeprefix('preset-')}.svg"
+            )
         return ""
 
     @property

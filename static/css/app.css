@@ -1411,16 +1411,11 @@ th {
 }
 
 .stats-summary-total {
-  grid-column: span 4;
+  min-height: 140px;
 }
 
 .settlement-panel {
-  grid-column: span 8;
-}
-
-.stats-grid:has(.stats-summary-total):not(:has(.settlement-panel)) .stats-summary-total {
   grid-column: 1 / -1;
-  min-height: 140px;
 }
 
 .chart-panel canvas {
@@ -1838,7 +1833,66 @@ th {
   }
 
   .avatar-picker {
-    grid-template-columns: repeat(4, minmax(54px, 1fr));
+    align-content: start;
+    grid-auto-rows: max-content;
+    grid-template-columns: repeat(3, minmax(68px, 1fr));
+    margin-top: 12px;
+    overscroll-behavior: contain;
+    padding: 2px 2px 8px;
+    scrollbar-gutter: stable;
+    touch-action: pan-y;
+  }
+
+  .avatar-dialog {
+    height: calc(100dvh - 16px);
+    margin: auto;
+    max-height: calc(100dvh - 16px);
+    max-width: calc(100vw - 16px);
+    padding: 14px;
+  }
+
+  .avatar-dialog-head {
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatar-dialog-head p {
+    font-size: 13px;
+    margin: 3px 0 0;
+  }
+
+  .avatar-option {
+    min-width: 0;
+    touch-action: manipulation;
+  }
+
+  .avatar-animal-option,
+  .avatar-initials-option {
+    aspect-ratio: auto;
+    height: 82px;
+    min-height: 82px;
+  }
+
+  .avatar-animal-option .person-avatar,
+  .avatar-initials-option .person-avatar {
+    flex: 0 0 56px;
+    height: 56px;
+    width: 56px;
+  }
+
+  .avatar-upload-option {
+    grid-column: 1 / -1;
+    min-height: 96px;
+  }
+
+  .avatar-dialog-actions {
+    margin-top: 10px;
+  }
+
+  .avatar-dialog-actions .button {
+    justify-content: center;
+    min-height: 44px;
+    width: 100%;
   }
 }
 
@@ -1884,6 +1938,12 @@ th {
 
   .emoji-input-row input {
     flex: 1 1 64px;
+  }
+}
+
+@media (max-width: 330px) {
+  .avatar-picker {
+    grid-template-columns: repeat(2, minmax(72px, 1fr));
   }
 }
 

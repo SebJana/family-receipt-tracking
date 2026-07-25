@@ -5,6 +5,7 @@ import tempfile
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
 
@@ -18,7 +19,12 @@ from .services import (
     parse_price_cents,
     split_item_allocations,
 )
-from .templatetags.receipt_extras import highlight_search, market_logo, quantity_int
+from .templatetags.receipt_extras import (
+    highlight_search,
+    market_logo,
+    market_logo_url,
+    quantity_int,
+)
 
 
 SAMPLE_CSV = """Datum;Einkaufsladen;Artikel;Anzahl;Gesamtpreis;Käufer
@@ -107,6 +113,12 @@ class GermanParsingTests(ReceiptTestCase):
         self.assertEqual(market_logo("Dunkin Donuts"), "dunkin.svg")
         self.assertEqual(market_logo("Lieferando.de"), "lieferando.png")
         self.assertEqual(market_logo("Unbekannter Markt"), "")
+
+    def test_market_logo_url_uses_static_asset_resolution(self):
+        self.assertEqual(
+            market_logo_url("REWE"), static("images/market-logos/rewe.svg")
+        )
+        self.assertEqual(market_logo_url("Unbekannter Markt"), "")
 
     def test_monthly_settlement_calculates_who_pays_whom(self):
         settlement = build_settlement(
@@ -261,7 +273,7 @@ class ViewTests(ReceiptTestCase):
 
         self.assertContains(response, 'id="receipt-filter-market"')
         self.assertContains(response, 'data-name="REWE"')
-        self.assertContains(response, "images/market-logos/rewe.svg")
+        self.assertContains(response, static("images/market-logos/rewe.svg"))
         self.assertContains(response, 'data-name="Corner Shop"')
         self.assertContains(response, 'class="market-option-logo is-fallback"', html=False)
 
@@ -542,7 +554,9 @@ class ViewTests(ReceiptTestCase):
         self.assertEqual(response.status_code, 302)
         person.refresh_from_db()
         self.assertEqual(person.avatar_choice, "preset-7")
-        self.assertTrue(person.avatar_image_url.endswith("images/avatars/avatar-7.svg"))
+        self.assertEqual(
+            person.avatar_image_url, static("images/avatars/avatar-7.svg")
+        )
 
     def test_animal_avatar_cannot_be_assigned_to_two_people(self):
         payload = {"action": "save"}
@@ -598,13 +612,46 @@ class ViewTests(ReceiptTestCase):
     def test_people_page_offers_thirty_one_animal_presets_and_initials(self):
         response = self.client.get(reverse("receipts:people"))
 
-        self.assertContains(response, "avatar-1.svg")
-        self.assertContains(response, "avatar-24.svg")
-        self.assertContains(response, "avatar-31.svg")
+        self.assertContains(response, static("images/avatars/avatar-1.svg"))
+        self.assertContains(response, static("images/avatars/avatar-24.svg"))
+        self.assertContains(response, static("images/avatars/avatar-31.svg"))
         self.assertContains(response, "Känguru")
         self.assertContains(response, "Schildkröte")
         self.assertContains(response, "Initialen")
         self.assertContains(response, "avatar-dialog-1")
+
+    def test_avatar_dialog_has_mobile_interaction_safeguards(self):
+        project_root = Path(__file__).resolve().parent.parent
+        css = (project_root / "static/css/app.css").read_text(encoding="utf-8")
+        javascript = (project_root / "static/js/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("height: calc(100dvh - 16px)", css)
+        self.assertIn("grid-auto-rows: max-content", css)
+        self.assertIn("grid-template-columns: repeat(3, minmax(68px, 1fr))", css)
+        self.assertIn("grid-template-columns: repeat(2, minmax(72px, 1fr))", css)
+        self.assertIn("height: 82px", css)
+        self.assertIn("touch-action: manipulation", css)
+        self.assertIn("const outside = event.clientX < bounds.left", javascript)
+
+    def test_avatar_options_do_not_show_hover_tooltips(self):
+        response = self.client.get(reverse("receipts:people"))
+
+        self.assertNotRegex(
+            response.content.decode(),
+            r'class="avatar-option[^"]*"[^>]*\stitle=',
+        )
+
+    def test_avatar_dialog_distinguishes_cancel_from_confirm(self):
+        response = self.client.get(reverse("receipts:people"))
+        javascript = (
+            Path(__file__).resolve().parent.parent / "static/js/app.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertContains(response, "data-avatar-cancel")
+        self.assertContains(response, "data-avatar-confirm")
+        self.assertIn("captureSnapshot(dialog)", javascript)
+        self.assertIn("cancelDialog(dialog)", javascript)
+        self.assertIn('originalChoice.dispatchEvent(new Event("change"', javascript)
 
     def test_receipt_article_search_matches_inside_words_and_ignores_case(self):
         buyer = Person.objects.get(name="Person 1")
@@ -698,6 +745,30 @@ class ViewTests(ReceiptTestCase):
         self.assertEqual(response.context["filters"]["date_from"], month_start.isoformat())
         self.assertEqual(response.context["filters"]["date_to"], month_end.isoformat())
         self.assertEqual(response.context["single_month"], month_start)
+        self.assertNotContains(response, "Personen pro Monat")
+        self.assertNotContains(response, 'id="person-month-data"')
+
+    def test_person_per_month_chart_is_hidden_for_both_month_presets(self):
+        today = timezone.localdate()
+        current_start = today.replace(day=1)
+        current_end = (current_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        previous_end = current_start - timedelta(days=1)
+        previous_start = previous_end.replace(day=1)
+
+        for date_from, date_to in (
+            (current_start, current_end),
+            (previous_start, previous_end),
+        ):
+            with self.subTest(date_from=date_from):
+                response = self.client.get(
+                    reverse("receipts:stats"),
+                    {
+                        "date_from": date_from.isoformat(),
+                        "date_to": date_to.isoformat(),
+                    },
+                )
+                self.assertNotContains(response, "Personen pro Monat")
+                self.assertNotContains(response, 'id="person-month-data"')
 
     def test_stats_page_has_responsive_settlement_and_grouped_breakdowns(self):
         person = Person.objects.get(name="Person 1")
@@ -718,6 +789,13 @@ class ViewTests(ReceiptTestCase):
         self.assertContains(response, 'class="settlement-balance-table"')
         self.assertContains(response, 'data-label="Saldo"')
         self.assertContains(response, 'class="settlement-transfer-table"')
+        self.assertContains(
+            response,
+            'class="chart-panel wide month-total-card stats-summary-total"',
+        )
+        self.assertContains(
+            response, 'class="chart-panel wide settlement-panel"'
+        )
         self.assertContains(response, 'class="stats-breakdown-row"', count=2)
 
     def test_forms_expose_action_availability_hooks(self):
@@ -795,6 +873,23 @@ class ViewTests(ReceiptTestCase):
         self.assertEqual(stats_response.status_code, 200)
         self.assertContains(stats_response, "Statistiken")
         self.assertContains(stats_response, "data-person-avatars")
+
+    def test_market_stats_keep_brand_color_keys_with_cached_logo_urls(self):
+        person = Person.objects.get(name="Person 1")
+        receipt = Receipt.objects.create(
+            date=timezone.localdate(), market="REWE", buyer=person
+        )
+        ReceiptItem.objects.create(
+            receipt=receipt, article="Test", quantity=1, total_price_cents=100
+        )
+
+        response = self.client.get(reverse("receipts:stats"))
+        market_data = response.context["stats"]["markets"]
+
+        self.assertEqual(market_data["logo_keys"], ["rewe.svg"])
+        self.assertEqual(
+            market_data["logos"], [static("images/market-logos/rewe.svg")]
+        )
 
     def test_import_page_has_copyable_csv_prompt_matching_parser_columns(self):
         response = self.client.get(reverse("receipts:import"))
@@ -905,6 +1000,84 @@ class ViewTests(ReceiptTestCase):
         self.assertContains(edit_response, "Selected Item")
         self.assertNotContains(edit_response, "Other Item")
         self.assertNotContains(edit_response, "Zeile hinzufügen")
+
+    def test_focused_item_editor_saves_every_editable_attribute(self):
+        person_1 = Person.objects.get(name="Person 1")
+        person_2 = Person.objects.get(name="Person 2")
+        old_category = Category.objects.create(name="Alt", emoji="A")
+        new_category = Category.objects.create(name="Neu", emoji="N")
+        receipt = Receipt.objects.create(
+            date="2026-07-03", market="Example Market", buyer=person_1
+        )
+        untouched_item = ReceiptItem.objects.create(
+            receipt=receipt,
+            article="Untouched Item",
+            quantity=Decimal("1"),
+            total_price_cents=100,
+            category=old_category,
+        )
+        edited_item = ReceiptItem.objects.create(
+            receipt=receipt,
+            article="Old Item",
+            quantity=Decimal("1"),
+            total_price_cents=200,
+            category=old_category,
+        )
+        ItemAllocation.objects.create(item=edited_item, person=person_1, weight=1)
+        ReceiptItem.objects.create(
+            receipt=Receipt.objects.create(
+                date="2026-07-02", market="Other Market", buyer=person_1
+            ),
+            article="New Item",
+            quantity=1,
+            total_price_cents=50,
+            category=new_category,
+        )
+
+        edit_url = reverse("receipts:receipt_edit", args=[receipt.id])
+        get_response = self.client.get(edit_url, {"item": edited_item.id})
+        self.assertContains(
+            get_response, f'name="item-0-id" value="{edited_item.id}"'
+        )
+
+        response = self.client.post(
+            f"{edit_url}?item={edited_item.id}",
+            {
+                "date": "2026-07-03",
+                "market": "Example Market",
+                "buyer": str(person_1.id),
+                "row_count": "1",
+                "item-0-id": str(edited_item.id),
+                "item-0-article": "New Item",
+                "item-0-quantity": "2,5",
+                "item-0-price": "7,89 €",
+                "item-0-persons": [str(person_1.id), str(person_2.id)],
+                f"item-0-weight-{person_1.id}": "3",
+                f"item-0-weight-{person_2.id}": "1",
+            },
+        )
+
+        self.assertRedirects(response, reverse("receipts:receipt_list"))
+        edited_item.refresh_from_db()
+        untouched_item.refresh_from_db()
+        self.assertEqual(edited_item.article, "New Item")
+        self.assertEqual(edited_item.quantity, Decimal("2.50"))
+        self.assertEqual(edited_item.total_price_cents, 789)
+        self.assertEqual(edited_item.category, new_category)
+        self.assertEqual(
+            {
+                allocation.person_id: allocation.weight
+                for allocation in edited_item.allocations.all()
+            },
+            {
+                person_1.id: Decimal("0.7500"),
+                person_2.id: Decimal("0.2500"),
+            },
+        )
+        self.assertEqual(untouched_item.article, "Untouched Item")
+        self.assertEqual(untouched_item.quantity, Decimal("1.00"))
+        self.assertEqual(untouched_item.total_price_cents, 100)
+        self.assertEqual(untouched_item.category, old_category)
 
     def test_focused_item_editor_rejects_item_from_another_receipt(self):
         person = Person.objects.get(name="Person 1")

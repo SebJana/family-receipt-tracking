@@ -56,13 +56,12 @@
                  aria-controls="receipt-market-options" data-market-input required>
         </div>
         <div class="market-dropdown" id="receipt-market-options" role="listbox" data-market-options hidden>
-          {% static "images/market-logos/" as market_logo_base %}
           {% for market in markets %}
-            {% with logo=market|market_logo %}
+            {% with logo=market|market_logo_url %}
               <button type="button" class="market-option" role="option" data-market-option
-                      data-name="{{ market }}" data-logo="{% if logo %}{{ market_logo_base }}{{ logo }}{% endif %}">
+                      data-name="{{ market }}" data-logo="{{ logo }}">
                 <span class="market-option-logo {% if not logo %}is-fallback{% endif %}" aria-hidden="true">
-                  {% if logo %}<img src="{{ market_logo_base }}{{ logo }}" alt="">{% else %}{{ market|first|upper }}{% endif %}
+                  {% if logo %}<img src="{{ logo }}" alt="">{% else %}{{ market|first|upper }}{% endif %}
                 </span>
                 <span>{{ market }}</span>
               </button>

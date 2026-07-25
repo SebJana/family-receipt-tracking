@@ -27,17 +27,16 @@
                aria-controls="receipt-filter-market-options" data-market-input>
       </div>
       <div class="market-dropdown" id="receipt-filter-market-options" role="listbox" data-market-options hidden>
-        {% static "images/market-logos/" as market_logo_base %}
         <button type="button" class="market-option" role="option" data-market-option
                 data-name="" data-no-icon="true">
           <span>Alle M&auml;rkte</span>
         </button>
         {% for market in markets %}
-          {% with logo=market|market_logo %}
+          {% with logo=market|market_logo_url %}
             <button type="button" class="market-option" role="option" data-market-option
-                    data-name="{{ market }}" data-logo="{% if logo %}{{ market_logo_base }}{{ logo }}{% endif %}">
+                    data-name="{{ market }}" data-logo="{{ logo }}">
               <span class="market-option-logo {% if not logo %}is-fallback{% endif %}" aria-hidden="true">
-                {% if logo %}<img src="{{ market_logo_base }}{{ logo }}" alt="">{% else %}{{ market|first|upper }}{% endif %}
+                {% if logo %}<img src="{{ logo }}" alt="">{% else %}{{ market|first|upper }}{% endif %}
               </span>
               <span>{{ market }}</span>
             </button>
@@ -63,7 +62,6 @@
 <div id="receipt-list-content">
 <div class="receipt-list-layout">
 {% if receipts %}
-  {% static "images/market-logos/" as market_logo_base %}
   <nav class="receipt-jump-menu" aria-label="Schnellnavigation zu Belegen">
     <a class="receipt-jump-link receipt-jump-top" href="#receipt-filters">
       <span aria-hidden="true">↑</span>
@@ -71,9 +69,9 @@
     </a>
     {% for receipt in receipts %}
       <a class="receipt-jump-link" href="#receipt-{{ receipt.id }}" title="{{ receipt.market }} · {{ receipt.date|date:'d.m.Y' }}">
-        {% with logo=receipt.market|market_logo %}
+        {% with logo=receipt.market|market_logo_url %}
           {% if logo %}
-            <img src="{{ market_logo_base }}{{ logo }}" alt="{{ receipt.market }}">
+            <img src="{{ logo }}" alt="{{ receipt.market }}">
           {% else %}
             <span class="receipt-jump-fallback" aria-hidden="true">{{ receipt.market|first|upper }}</span>
           {% endif %}
@@ -90,11 +88,10 @@
     <div class="receipt-head">
       <div>
         <h2 class="receipt-title">
-          {% with logo=receipt.market|market_logo %}
+          {% with logo=receipt.market|market_logo_url %}
             {% if logo %}
-              {% static "images/market-logos/" as market_logo_base %}
               <span class="market-logo-frame">
-                <img class="market-logo" src="{{ market_logo_base }}{{ logo }}" alt="{{ receipt.market }} Logo">
+                <img class="market-logo" src="{{ logo }}" alt="{{ receipt.market }} Logo">
               </span>
             {% else %}
               <span class="market-logo-frame market-logo-fallback" aria-label="{{ receipt.market }} Logo">{{ receipt.market|first|upper }}</span>

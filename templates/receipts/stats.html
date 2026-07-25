@@ -60,13 +60,13 @@
 
 {% if not single_month %}{{ stats.monthly|json_script:"monthly-data" }}{% endif %}
 {{ stats.markets|json_script:"market-data" }}
-{{ stats.person_month|json_script:"person-month-data" }}
+{% if not show_settlement %}{{ stats.person_month|json_script:"person-month-data" }}{% endif %}
 {{ stats.people|json_script:"people-data" }}
 {{ stats.categories|json_script:"category-data" }}
 
 <div class="stats-grid">
   {% if single_month %}
-    <section class="chart-panel month-total-card stats-summary-total">
+    <section class="chart-panel wide month-total-card stats-summary-total">
       <span class="month-total-label">Ausgaben im {{ single_month|date:"F Y" }}</span>
       <strong class="month-total-value">{{ stats.monthly.total }}</strong>
     </section>
@@ -87,7 +87,7 @@
   {% endif %}
 
   {% if show_settlement and not filters.person %}
-    <section class="chart-panel settlement-panel">
+    <section class="chart-panel wide settlement-panel">
       <div class="section-head">
         <div>
           <h2>Monatsausgleich</h2>
@@ -142,8 +142,7 @@
   <div class="stats-breakdown-row">
     <section class="chart-panel stats-chart-card">
       <h2>Ausgaben nach Markt</h2>
-      {% static "images/market-logos/" as market_logo_base %}
-      <canvas data-chart="pie" data-source="market-data" data-logo-base="{{ market_logo_base }}"></canvas>
+      <canvas data-chart="pie" data-source="market-data" data-market-logos></canvas>
       <table>
         <tbody>
           {% for label, value in stats.markets.rows %}
@@ -184,7 +183,7 @@
     {% endif %}
   </div>
 
-  {% if not filters.person %}
+  {% if not filters.person and not show_settlement %}
   <section class="chart-panel wide stats-trend-panel">
     <h2>Personen pro Monat</h2>
     <canvas data-chart="stacked" data-source="person-month-data"></canvas>

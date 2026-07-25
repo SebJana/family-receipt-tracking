@@ -1,4 +1,5 @@
 from django import template
+from django.templatetags.static import static
 from django.utils.html import conditional_escape, format_html
 from django.utils.safestring import mark_safe
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -110,3 +111,9 @@ def market_logo(value):
         if re.search(rf"(?<!\w){re.escape(retailer)}(?!\w)", market):
             return filename
     return ""
+
+
+@register.filter
+def market_logo_url(value):
+    filename = market_logo(value)
+    return static(f"images/market-logos/{filename}") if filename else ""
