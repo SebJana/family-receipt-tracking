@@ -11,12 +11,12 @@
   </div>
 </div>
 
-<form class="filters" method="get" data-live-filter data-persist-filters="receipt-tracker:stats-filters:v1">
+<form class="filters" method="get" data-live-filter>
   <label>Zeitraum
     <select data-date-preset>
-      <option value="">Individuell</option>
-      <option value="current" data-from="{{ month_presets.current_from }}" data-to="{{ month_presets.current_to }}">Aktueller Monat</option>
-      <option value="previous" data-from="{{ month_presets.previous_from }}" data-to="{{ month_presets.previous_to }}">Letzter Monat</option>
+      <option value=""{% if not date_preset %} selected{% endif %}>Individuell</option>
+      <option value="current"{% if date_preset == "current" %} selected{% endif %} data-from="{{ month_presets.current_from }}" data-to="{{ month_presets.current_to }}">Aktueller Monat</option>
+      <option value="previous"{% if date_preset == "previous" %} selected{% endif %} data-from="{{ month_presets.previous_from }}" data-to="{{ month_presets.previous_to }}">Letzter Monat</option>
     </select>
   </label>
   <label>Von

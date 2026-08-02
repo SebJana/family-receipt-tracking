@@ -102,49 +102,6 @@ function bindDatePresets() {
     });
     dateFrom.addEventListener("change", syncSelection);
     dateTo.addEventListener("change", syncSelection);
-    syncSelection();
-  });
-}
-
-function bindPersistedFilters() {
-  document.querySelectorAll("form[data-persist-filters]").forEach((form) => {
-    const storageKey = form.dataset.persistFilters;
-    const namedControls = Array.from(form.elements).filter((control) => control.name);
-    const filterNames = new Set(namedControls.map((control) => control.name));
-    const currentUrl = new URL(window.location.href);
-    const hasExplicitFilters = Array.from(currentUrl.searchParams.keys())
-      .some((name) => filterNames.has(name));
-
-    const filterValues = () => Object.fromEntries(
-      namedControls.map((control) => [control.name, control.value]),
-    );
-    const saveFilters = () => {
-      try {
-        window.localStorage.setItem(storageKey, JSON.stringify(filterValues()));
-      } catch (_error) {
-        // Filtering still works when browser storage is unavailable or disabled.
-      }
-    };
-
-    if (!hasExplicitFilters) {
-      try {
-        const savedFilters = JSON.parse(window.localStorage.getItem(storageKey) || "null");
-        if (savedFilters && typeof savedFilters === "object") {
-          namedControls.forEach((control) => {
-            if (Object.hasOwn(savedFilters, control.name)) {
-              currentUrl.searchParams.set(control.name, String(savedFilters[control.name]));
-            }
-          });
-          window.location.replace(currentUrl);
-          return;
-        }
-      } catch (_error) {
-        // Ignore invalid or inaccessible saved data and use the server defaults.
-      }
-    }
-
-    saveFilters();
-    form.addEventListener("submit", saveFilters);
   });
 }
 

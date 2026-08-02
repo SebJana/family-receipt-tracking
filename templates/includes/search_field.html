@@ -3,6 +3,6 @@
   <span class="filter-clear-field" data-search-field>
     <span class="filter-search-icon" aria-hidden="true">{% include "includes/icon.html" with name="search" %}</span>
     <input id="{{ id }}" type="search"{% if name %} name="{{ name }}"{% endif %} value="{{ value|default:'' }}" placeholder="{{ placeholder|default:'Suchen …' }}"{% if category_name %} aria-label="Artikel in {{ category_name }} suchen"{% elif aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if category_item_search %} data-category-item-search{% endif %}>
-    <button class="filter-clear-button" type="button" data-search-clear aria-label="{{ clear_label|default:'Suche löschen' }}" {% if not value %}hidden{% endif %}>×</button>
+    <button class="filter-clear-button" type="button" data-search-clear aria-label="{{ clear_label|default:'Suche löschen' }}" {% if not value %}hidden{% endif %}>{% include "includes/icon.html" with name="x" %}</button>
   </span>
 </label>

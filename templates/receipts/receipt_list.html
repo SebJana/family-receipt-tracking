@@ -62,7 +62,7 @@
 {% if receipts %}
   <nav class="receipt-jump-menu" aria-label="Schnellnavigation zu Belegen">
     <a class="receipt-jump-link receipt-jump-top" href="#receipt-filters">
-      <span aria-hidden="true">↑</span>
+      {% include "includes/icon.html" with name="arrow-up" %}
       <span>Zu Filtern</span>
     </a>
     {% for receipt in receipts %}
@@ -105,7 +105,7 @@
       <div class="receipt-actions">
         <strong>{{ receipt.list_total_cents|default:0|cents_euro }}</strong>
         <a class="button secondary small" href="{% url 'receipts:receipt_edit' receipt.id %}">
-          {% include "includes/icon.html" with name="edit" %}
+          {% include "includes/icon.html" with name="pencil-line" %}
           Bearbeiten
         </a>
       </div>

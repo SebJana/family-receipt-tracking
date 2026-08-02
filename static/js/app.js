@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-  bindPersistedFilters();
   bindDatePresets();
   bindLiveFilters();
   bindAllocationControls(document);

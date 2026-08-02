@@ -81,19 +81,43 @@ class StatsViewTests(ReceiptTestCase):
         self.assertNotContains(response, 'name="article"')
         self.assertNotContains(response, "Filter anwenden")
 
-    def test_stats_filters_are_marked_for_browser_persistence(self):
-        response = self.client.get(reverse("receipts:stats"))
+    def test_stats_filters_persist_in_the_session_without_a_client_redirect(self):
+        stats_url = reverse("receipts:stats")
+        self.client.get(
+            stats_url,
+            {
+                "date_from": "2026-06-01",
+                "date_to": "2026-06-30",
+                "market": "A",
+            },
+        )
+        response = self.client.get(stats_url)
         javascript = (
             Path(__file__).resolve().parent.parent.parent / "static/js/stats.js"
         ).read_text(encoding="utf-8")
 
-        self.assertContains(
-            response,
-            'data-persist-filters="receipt-tracker:stats-filters:v1"',
+        self.assertEqual(response.context["filters"]["date_from"], "2026-06-01")
+        self.assertEqual(response.context["filters"]["date_to"], "2026-06-30")
+        self.assertEqual(response.context["filters"]["market"], "A")
+        self.assertNotContains(response, "data-persist-filters")
+        self.assertNotIn("window.localStorage", javascript)
+        self.assertNotIn("window.location.replace", javascript)
+
+    def test_explicit_stats_filters_replace_the_saved_session_filters(self):
+        stats_url = reverse("receipts:stats")
+        self.client.get(
+            stats_url,
+            {"date_from": "2026-05-01", "date_to": "2026-05-31"},
         )
-        self.assertIn("window.localStorage.setItem", javascript)
-        self.assertIn("window.localStorage.getItem", javascript)
-        self.assertIn("window.location.replace(currentUrl)", javascript)
+        self.client.get(
+            stats_url,
+            {"date_from": "2026-06-01", "date_to": "2026-06-30"},
+        )
+
+        response = self.client.get(stats_url)
+
+        self.assertEqual(response.context["filters"]["date_from"], "2026-06-01")
+        self.assertEqual(response.context["filters"]["date_to"], "2026-06-30")
 
     def test_stats_page_defaults_to_current_month(self):
         today = timezone.localdate()
@@ -108,6 +132,29 @@ class StatsViewTests(ReceiptTestCase):
         self.assertContains(response, ">Einkäufe</span>")
         self.assertNotContains(response, "Personen pro Monat")
         self.assertNotContains(response, 'id="person-month-data"')
+
+    def test_date_preset_is_selected_in_the_initial_html(self):
+        today = timezone.localdate()
+        current_start = today.replace(day=1)
+        current_end = (current_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+        previous_end = current_start - timedelta(days=1)
+        previous_start = previous_end.replace(day=1)
+        stats_url = reverse("receipts:stats")
+
+        cases = (
+            ({"date_from": current_start, "date_to": current_end, "market": "A"}, "current"),
+            ({"date_from": previous_start, "date_to": previous_end, "market": "A"}, "previous"),
+            ({"date_from": current_start + timedelta(days=1), "date_to": current_end}, ""),
+        )
+        for query, expected in cases:
+            with self.subTest(expected=expected):
+                response = self.client.get(
+                    stats_url,
+                    {name: value.isoformat() if isinstance(value, date) else value for name, value in query.items()},
+                )
+
+                self.assertEqual(response.context["date_preset"], expected)
+                self.assertContains(response, f'<option value="{expected}" selected')
 
     def test_purchase_count_uses_the_same_filters_as_the_month_total(self):
         today = timezone.localdate()

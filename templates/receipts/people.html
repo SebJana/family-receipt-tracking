@@ -105,7 +105,7 @@
             </td>
             <td class="people-action-cell">
               <button class="button danger small" type="submit" name="delete_person" value="{{ person.id }}">
-                {% include "includes/icon.html" with name="trash" %}
+                {% include "includes/icon.html" with name="trash-2" %}
                 Löschen
               </button>
             </td>
@@ -145,7 +145,7 @@
                   <input type="hidden" name="action" value="restore">
                   <input type="hidden" name="person_id" value="{{ person.id }}">
                   <button class="button secondary small" type="submit">
-                    {% include "includes/icon.html" with name="restore" %}
+                    {% include "includes/icon.html" with name="rotate-ccw" %}
                     Wiederherstellen
                   </button>
                 </form>
@@ -154,7 +154,7 @@
                   <input type="hidden" name="action" value="hard_delete">
                   <input type="hidden" name="person_id" value="{{ person.id }}">
                   <button class="button danger small" type="submit">
-                    {% include "includes/icon.html" with name="trash" %}
+                    {% include "includes/icon.html" with name="trash-2" %}
                     Endgültig löschen
                   </button>
                 </form>

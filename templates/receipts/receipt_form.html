@@ -23,7 +23,7 @@
     <form method="post" action="{% url 'receipts:receipt_delete' receipt_object.id %}" data-confirm="Diesen Beleg wirklich löschen?">
       {% csrf_token %}
       <button class="button danger" type="submit">
-        {% include "includes/icon.html" with name="trash" %}
+        {% include "includes/icon.html" with name="trash-2" %}
         Beleg löschen
       </button>
     </form>
@@ -104,10 +104,10 @@
           {% if can_delete_items and row.item_id %}
             <button class="button danger small" type="button" data-delete-existing>
               {% if row.delete %}
-                {% include "includes/icon.html" with name="restore" %}
+                {% include "includes/icon.html" with name="rotate-ccw" %}
                 Löschen zurücknehmen
               {% else %}
-                {% include "includes/icon.html" with name="trash" %}
+                {% include "includes/icon.html" with name="trash-2" %}
                 Artikel löschen
               {% endif %}
             </button>

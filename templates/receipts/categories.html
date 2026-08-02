@@ -37,7 +37,7 @@
         </div>
         <dialog class="category-edit-dialog" id="category-edit-{{ category.id }}">
           <form method="post" class="category-edit-form" data-dirty-form>{% csrf_token %}<input type="hidden" name="action" value="edit"><input type="hidden" name="category_id" value="{{ category.id }}">
-            <div class="category-dialog-head"><div><h3>Kategorie bearbeiten</h3><p>Ändere Name oder Symbol.</p></div><button type="button" class="dialog-close" data-category-edit-close aria-label="Schließen">×</button></div>
+            <div class="category-dialog-head"><div><h3>Kategorie bearbeiten</h3><p>Ändere Name oder Symbol.</p></div><button type="button" class="dialog-close" data-category-edit-close aria-label="Schließen">{% include "includes/icon.html" with name="x" %}</button></div>
             <label>Name <input name="name" value="{{ category.name }}" required maxlength="80" {% if category.is_default %}readonly{% endif %}></label>
             <div class="emoji-field edit-emoji-field"><label>Icon</label><div class="emoji-input-row"><input name="emoji" value="{{ category.emoji }}" required aria-label="Emoji oder Großbuchstabe" data-edit-category-symbol><button type="button" class="button secondary" data-edit-emoji-toggle>Icon wählen</button></div>
               <div class="emoji-picker" data-edit-emoji-picker hidden><input type="search" data-edit-emoji-search placeholder="Emojis suchen …"><div class="emoji-results">{% for emoji, keywords in emoji_choices %}<button type="button" data-keywords="{{ keywords }}" aria-label="Emoji {{ emoji }}">{{ emoji }}</button>{% endfor %}</div><p class="emoji-no-results" data-edit-emoji-no-results hidden>Keine passenden Emojis</p></div>
@@ -47,7 +47,7 @@
         </dialog>
         <button class="button secondary category-items-open" type="button" data-category-items-open="category-items-{{ category.id }}" {% if not category.grouped_items %}disabled{% endif %}><span data-category-count>{{ category.grouped_items|length }}</span> Artikel verwalten</button>
         <dialog class="category-items-dialog" id="category-items-{{ category.id }}">
-          <div class="category-dialog-head"><div><h3>{{ category.emoji }} {{ category.name }}</h3><p>Artikel suchen und aus der Kategorie entfernen.</p></div><button type="button" class="dialog-close" data-category-items-close aria-label="Schließen">×</button></div>
+          <div class="category-dialog-head"><div><h3>{{ category.emoji }} {{ category.name }}</h3><p>Artikel suchen und aus der Kategorie entfernen.</p></div><button type="button" class="dialog-close" data-category-items-close aria-label="Schließen">{% include "includes/icon.html" with name="x" %}</button></div>
           {% include "includes/search_field.html" with id="category-item-search-"|add:category.id|stringformat:"s" label="Artikelsuche" value=filters.article placeholder="Artikel suchen …" category_name=category.name category_item_search=True wrapper_class="category-item-search" clear_label="Artikelsuche löschen" %}
           <div class="category-contents" data-category-contents>{% for item in category.grouped_items %}<div class="category-assigned-item" data-article="{{ item.article }}"><span>{{ item.article }} <small>({{ item.count }}×)</small></span><button type="button" class="button secondary small" data-clear-item>Entfernen</button></div>{% empty %}<p class="empty" data-category-empty>Noch leer</p>{% endfor %}</div>
           <p class="empty" data-category-search-empty hidden>Keine passenden Artikel gefunden.</p>
@@ -62,9 +62,9 @@
 <section data-category-panel="assign" hidden>
   <div class="assignment-game" data-category-game>{% csrf_token %}
     <p class="assignment-kicker">Welcher Kategorie gehört dieser Artikel?</p>
-    <button type="button" class="button secondary assignment-undo" data-assignment-undo hidden>↶ Letzte Zuordnung rückgängig</button>
+    <button type="button" class="button secondary assignment-undo" data-assignment-undo hidden>{% include "includes/icon.html" with name="undo-2" %} Letzte Zuordnung rückgängig</button>
     <div class="current-item" data-current-item {% if not random_item %}hidden{% endif %}><span data-current-article>{% if random_item %}{{ random_item.article }}{% endif %}</span></div>
-    <button type="button" class="text-button assignment-skip" data-assignment-skip {% if not random_item %}hidden{% endif %}>Überspringen →</button>
+    <button type="button" class="text-button assignment-skip" data-assignment-skip {% if not random_item %}hidden{% endif %}>Überspringen {% include "includes/icon.html" with name="arrow-right" %}</button>
     <div class="assignment-categories" data-assignment-categories {% if not random_item %}hidden{% endif %}>{% for category in categories %}<button type="button" class="category-choice" data-assign-category="{{ category.id }}"><span>{{ category.emoji }}</span><strong>{{ category.name }}</strong></button>{% endfor %}</div>
     <div class="assignment-complete" data-assignment-complete {% if random_item %}hidden{% endif %}>🎉 Alles einsortiert!</div>
   </div>

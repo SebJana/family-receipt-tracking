@@ -555,8 +555,8 @@ function bindRowActions(root) {
       row.classList.toggle("is-deleted", shouldDelete);
       if (deleteInput) deleteInput.value = shouldDelete ? "on" : "";
       button.innerHTML = shouldDelete
-        ? `${iconMarkup("restore")} Löschen zurücknehmen`
-        : `${iconMarkup("trash")} Artikel löschen`;
+        ? `${iconMarkup("rotate-ccw")} Löschen zurücknehmen`
+        : `${iconMarkup("trash-2")} Artikel löschen`;
       setRowInputsDisabled(row, shouldDelete);
     });
   });

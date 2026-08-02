@@ -29,6 +29,16 @@ RECEIPT_IMPORT_PROMPT = (
     Path(__file__).resolve().parent / "prompts" / "receipt_import_prompt.txt"
 ).read_text(encoding="utf-8").strip()
 
+STATS_FILTER_SESSION_KEY = "receipt_tracker:stats_filters:v1"
+STATS_FILTER_NAMES = (
+    "date_from",
+    "date_to",
+    "market",
+    "buyer",
+    "person",
+    "category",
+)
+
 
 def health(request):
     return HttpResponse("ok")
@@ -323,9 +333,22 @@ def stats(request):
     previous_month_start = previous_month_end.replace(day=1)
 
     filter_query = request.GET.copy()
+    has_explicit_filters = any(name in request.GET for name in STATS_FILTER_NAMES)
+    if not has_explicit_filters:
+        saved_filters = request.session.get(STATS_FILTER_SESSION_KEY)
+        if isinstance(saved_filters, dict):
+            for name in STATS_FILTER_NAMES:
+                if name in saved_filters:
+                    filter_query[name] = str(saved_filters[name])
+
     if "date_from" not in filter_query and "date_to" not in filter_query:
         filter_query["date_from"] = current_month_start.isoformat()
         filter_query["date_to"] = current_month_end.isoformat()
+
+    if has_explicit_filters:
+        request.session[STATS_FILTER_SESSION_KEY] = {
+            name: filter_query.get(name, "") for name in STATS_FILTER_NAMES
+        }
 
     filters = _stats_filters(filter_query)
     stats_data = build_stats(filters)
@@ -371,10 +394,11 @@ def stats(request):
         if date_from and date_to and (date_from.year, date_from.month) == (date_to.year, date_to.month)
         else None
     )
-    show_settlement = (date_from, date_to) in {
-        (current_month_start, current_month_end),
-        (previous_month_start, previous_month_end),
-    }
+    date_preset = {
+        (current_month_start, current_month_end): "current",
+        (previous_month_start, previous_month_end): "previous",
+    }.get((date_from, date_to), "")
+    show_settlement = bool(date_preset)
     return render(
         request,
         "receipts/stats.html",
@@ -384,6 +408,7 @@ def stats(request):
             "categories": Category.objects.all(),
             "markets": Receipt.objects.order_by("market").values_list("market", flat=True).distinct(),
             "filters": filter_query,
+            "date_preset": date_preset,
             "month_presets": {
                 "current_from": current_month_start.isoformat(),
                 "current_to": current_month_end.isoformat(),
