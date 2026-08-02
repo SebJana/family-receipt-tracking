@@ -1404,6 +1404,22 @@ th {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
 }
 
+.stats-summary-row {
+  display: grid;
+  gap: 18px;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.stats-summary-row-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.stats-summary-row > .chart-panel {
+  margin-top: 0;
+  min-width: 0;
+}
+
 .stats-breakdown-row > .chart-panel {
   margin-top: 0;
   min-width: 0;
@@ -1467,12 +1483,10 @@ th {
   }
 
   .stats-grid > .chart-panel,
-  .stats-summary-total,
   .settlement-panel {
     grid-column: span 1;
   }
 
-  .stats-summary-total,
   .settlement-panel,
   .chart-panel.wide {
     grid-column: 1 / -1;
@@ -1544,6 +1558,7 @@ th {
   .form-grid.two,
   .row-main,
   .allocation-grid,
+  .stats-summary-row,
   .stats-grid {
     grid-template-columns: minmax(0, 1fr);
   }

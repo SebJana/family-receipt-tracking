@@ -173,7 +173,9 @@ class PeopleViewTests(ReceiptTestCase):
         person = Person.objects.get(name="Person 1")
         person.avatar_choice = "preset-3"
         person.save()
-        receipt = Receipt.objects.create(date="2026-07-03", market="Example Market", buyer=person)
+        receipt = Receipt.objects.create(
+            date=timezone.localdate(), market="Example Market", buyer=person
+        )
         ReceiptItem.objects.create(receipt=receipt, article="Test", quantity=1, total_price_cents=100)
 
         response = self.client.get(reverse("receipts:stats"))

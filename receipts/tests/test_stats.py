@@ -81,6 +81,20 @@ class StatsViewTests(ReceiptTestCase):
         self.assertNotContains(response, 'name="article"')
         self.assertNotContains(response, "Filter anwenden")
 
+    def test_stats_filters_are_marked_for_browser_persistence(self):
+        response = self.client.get(reverse("receipts:stats"))
+        javascript = (
+            Path(__file__).resolve().parent.parent.parent / "static/js/stats.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertContains(
+            response,
+            'data-persist-filters="receipt-tracker:stats-filters:v1"',
+        )
+        self.assertIn("window.localStorage.setItem", javascript)
+        self.assertIn("window.localStorage.getItem", javascript)
+        self.assertIn("window.location.replace(currentUrl)", javascript)
+
     def test_stats_page_defaults_to_current_month(self):
         today = timezone.localdate()
         month_start = today.replace(day=1)
@@ -91,8 +105,90 @@ class StatsViewTests(ReceiptTestCase):
         self.assertEqual(response.context["filters"]["date_from"], month_start.isoformat())
         self.assertEqual(response.context["filters"]["date_to"], month_end.isoformat())
         self.assertEqual(response.context["single_month"], month_start)
+        self.assertContains(response, ">Einkäufe</span>")
         self.assertNotContains(response, "Personen pro Monat")
         self.assertNotContains(response, 'id="person-month-data"')
+
+    def test_purchase_count_uses_the_same_filters_as_the_month_total(self):
+        today = timezone.localdate()
+        buyer = Person.objects.get(name="Person 1")
+        selected_person = Person.objects.get(name="Person 2")
+        other_person = Person.objects.get(name="Person 3")
+        category = Category.objects.create(name="Gezählt", emoji="G")
+        other_category = Category.objects.create(name="Nicht gezählt", emoji="N")
+
+        matching_receipt = Receipt.objects.create(
+            date=today, market="A", buyer=buyer
+        )
+        matching_item = ReceiptItem.objects.create(
+            receipt=matching_receipt,
+            article="Passend",
+            quantity=1,
+            total_price_cents=500,
+            category=category,
+        )
+        ItemAllocation.objects.create(
+            item=matching_item, person=selected_person, weight=1
+        )
+
+        wrong_person_receipt = Receipt.objects.create(
+            date=today, market="A", buyer=buyer
+        )
+        wrong_person_item = ReceiptItem.objects.create(
+            receipt=wrong_person_receipt,
+            article="Falsche Person",
+            quantity=1,
+            total_price_cents=700,
+            category=category,
+        )
+        ItemAllocation.objects.create(
+            item=wrong_person_item, person=other_person, weight=1
+        )
+
+        wrong_category_receipt = Receipt.objects.create(
+            date=today, market="A", buyer=buyer
+        )
+        wrong_category_item = ReceiptItem.objects.create(
+            receipt=wrong_category_receipt,
+            article="Falsche Kategorie",
+            quantity=1,
+            total_price_cents=900,
+            category=other_category,
+        )
+        ItemAllocation.objects.create(
+            item=wrong_category_item, person=selected_person, weight=1
+        )
+
+        response = self.client.get(
+            reverse("receipts:stats"),
+            {
+                "market": "A",
+                "buyer": buyer.id,
+                "person": selected_person.id,
+                "category": category.id,
+                "date_from": today.replace(day=1).isoformat(),
+                "date_to": (
+                    (today.replace(day=1) + timedelta(days=32)).replace(day=1)
+                    - timedelta(days=1)
+                ).isoformat(),
+            },
+        )
+
+        self.assertEqual(response.context["stats"]["purchase_count"], 1)
+        self.assertContains(response, ">Einkäufe</span>")
+
+    def test_purchase_count_is_hidden_for_a_custom_single_month_range(self):
+        today = timezone.localdate()
+
+        response = self.client.get(
+            reverse("receipts:stats"),
+            {
+                "date_from": today.replace(day=2).isoformat(),
+                "date_to": today.replace(day=3).isoformat(),
+            },
+        )
+
+        self.assertNotContains(response, ">Einkäufe</span>")
 
     def test_person_per_month_chart_is_hidden_for_both_month_presets(self):
         today = timezone.localdate()
@@ -113,6 +209,7 @@ class StatsViewTests(ReceiptTestCase):
                         "date_to": date_to.isoformat(),
                     },
                 )
+                self.assertContains(response, ">Einkäufe</span>")
                 self.assertNotContains(response, "Personen pro Monat")
                 self.assertNotContains(response, 'id="person-month-data"')
 
@@ -137,7 +234,7 @@ class StatsViewTests(ReceiptTestCase):
         self.assertContains(response, 'class="settlement-transfer-table"')
         self.assertContains(
             response,
-            'class="chart-panel wide month-total-card stats-summary-total"',
+            'class="chart-panel month-total-card stats-summary-total"',
         )
         self.assertContains(
             response, 'class="chart-panel wide settlement-panel"'

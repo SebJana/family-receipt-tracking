@@ -71,6 +71,7 @@ def build_stats(filters):
     category_totals_exact = defaultdict(Decimal)
     paid_totals = defaultdict(int)
     owed_totals_exact = defaultdict(Decimal)
+    contributing_receipt_ids = set()
 
     selected_person_id = filters.get("person_id")
     fallback_people = list(Person.objects.filter(active=True, is_deleted=False).order_by("name"))
@@ -93,6 +94,7 @@ def build_stats(filters):
                 owed_totals_exact[allocation.person.name] += exact_cents
                 if selected_person_id and allocation.person_id != selected_person_id:
                     continue
+                contributing_receipt_ids.add(receipt.id)
                 monthly_exact[month] += exact_cents
                 market_totals_exact[receipt.market] += exact_cents
                 person_month_exact[allocation.person.name][month] += exact_cents
@@ -153,6 +155,7 @@ def build_stats(filters):
     settlement = build_settlement(paid_totals, round_exact_cents(owed_totals_exact))
 
     return {
+        "purchase_count": len(contributing_receipt_ids),
         "monthly": {
             "labels": months,
             "values": [monthly[month] / 100 for month in months],

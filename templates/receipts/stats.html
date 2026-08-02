@@ -11,7 +11,7 @@
   </div>
 </div>
 
-<form class="filters" method="get" data-live-filter>
+<form class="filters" method="get" data-live-filter data-persist-filters="receipt-tracker:stats-filters:v1">
   <label>Zeitraum
     <select data-date-preset>
       <option value="">Individuell</option>
@@ -66,10 +66,18 @@
 
 <div class="stats-grid">
   {% if single_month %}
-    <section class="chart-panel wide month-total-card stats-summary-total">
-      <span class="month-total-label">Ausgaben im {{ single_month|date:"F Y" }}</span>
-      <strong class="month-total-value">{{ stats.monthly.total }}</strong>
-    </section>
+    <div class="stats-summary-row{% if not show_settlement %} stats-summary-row-single{% endif %}">
+      <section class="chart-panel month-total-card stats-summary-total">
+        <span class="month-total-label">Ausgaben im {{ single_month|date:"F Y" }}</span>
+        <strong class="month-total-value">{{ stats.monthly.total }}</strong>
+      </section>
+      {% if show_settlement %}
+        <section class="chart-panel month-total-card stats-summary-count">
+          <span class="month-total-label">Einkäufe</span>
+          <strong class="month-total-value">{{ stats.purchase_count }}</strong>
+        </section>
+      {% endif %}
+    </div>
   {% else %}
     <section class="chart-panel wide stats-trend-panel">
       <h2>Ausgaben pro Monat</h2>
