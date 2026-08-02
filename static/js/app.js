@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindMarketComboboxes();
   bindRowActions(document);
   bindConfirmForms();
+  bindPromptBuyerSelectors();
   bindCopyButtons();
   bindFactorTooltips();
   bindAvatarUploads();

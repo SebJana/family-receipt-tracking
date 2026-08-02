@@ -117,6 +117,23 @@ function bindCopyButtons() {
   });
 }
 
+function bindPromptBuyerSelectors() {
+  document.querySelectorAll("[data-prompt-buyer]").forEach((select) => {
+    const prompt = document.getElementById(select.dataset.promptTarget);
+    if (!prompt) return;
+
+    const placeholder = "[KÄUFERNAME]";
+    const template = prompt.value;
+    const updatePrompt = () => {
+      const buyerName = select.value || placeholder;
+      prompt.value = template.split(placeholder).join(buyerName);
+    };
+
+    select.addEventListener("change", updatePrompt);
+    updatePrompt();
+  });
+}
+
 function bindFactorTooltips() {
   const segments = document.querySelectorAll(".factor-segment[data-tooltip]");
   if (!segments.length) return;

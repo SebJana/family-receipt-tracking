@@ -46,6 +46,22 @@ class ImportViewTests(ReceiptTestCase):
         self.assertContains(response, "keine Markdown-Tabelle")
         self.assertEqual(response.context["receipt_import_prompt"], prompt_file.read_text(encoding="utf-8").strip())
 
+    def test_import_prompt_can_insert_a_selected_buyer(self):
+        response = self.client.get(reverse("receipts:import"))
+        javascript = (
+            Path(__file__).resolve().parent.parent.parent / "static/js/common.js"
+        ).read_text(encoding="utf-8")
+
+        self.assertContains(
+            response,
+            'id="receipt-import-buyer" data-prompt-buyer '
+            'data-prompt-target="receipt-import-prompt"',
+        )
+        self.assertContains(response, '<option value="">[KÄUFERNAME]</option>')
+        self.assertContains(response, '<option value="Person 1">Person 1</option>')
+        self.assertIn('const placeholder = "[KÄUFERNAME]"', javascript)
+        self.assertIn("template.split(placeholder).join(buyerName)", javascript)
+
     def test_unified_import_review_saves_like_manual_entry(self):
         person = Person.objects.get(name="Person 1")
 

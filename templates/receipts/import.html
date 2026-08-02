@@ -15,8 +15,18 @@
   <div class="section-head">
     <div>
       <h2>Kassenzettel-Prompt</h2>
-      <p>Prompt kopieren, <code>[KÄUFERNAME]</code> ersetzen und zusammen mit dem Kassenzettel verwenden.</p>
+      <p>Optional Käufer auswählen und den Prompt zusammen mit dem Kassenzettel verwenden. Ohne Auswahl bleibt <code>[KÄUFERNAME]</code> als Platzhalter erhalten.</p>
     </div>
+  </div>
+  <div class="import-prompt-actions">
+    <label for="receipt-import-buyer">Käufer
+      <select id="receipt-import-buyer" data-prompt-buyer data-prompt-target="receipt-import-prompt">
+        <option value="">[KÄUFERNAME]</option>
+        {% for person in buyers %}
+          <option value="{{ person.name }}">{{ person.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
     <button class="button secondary" type="button" data-copy-target="receipt-import-prompt" data-copy-label="Prompt kopieren">
       Prompt kopieren
     </button>

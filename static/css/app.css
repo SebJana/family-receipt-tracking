@@ -544,6 +544,19 @@ p {
   padding: 1px 4px;
 }
 
+.import-prompt-actions {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 320px) auto;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.import-prompt-actions .button {
+  min-height: 38px;
+}
+
 .import-prompt-text {
   font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
   font-size: 12px;
@@ -1699,7 +1712,11 @@ th {
     flex-direction: column;
   }
 
-  .import-prompt-panel .section-head .button {
+  .import-prompt-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .import-prompt-actions .button {
     width: 100%;
   }
 
