@@ -10,7 +10,7 @@
     <p>Artikel können ohne Zuordnung gespeichert werden. In den Statistiken werden sie dann auf alle aktiven Personen verteilt.</p>
   </div>
   {% if not item_only %}
-  <div class="page-actions">
+  <div class="page-actions" data-form-actions-top>
     <button class="button primary" type="submit" form="receipt-edit-form" {% if not import_review %}data-dirty-submit disabled{% endif %}>
       {% include "includes/icon.html" with name="save" %}
       {{ submit_label }}
@@ -87,10 +87,6 @@
     <div class="receipt-editor-summary">
     {% if not item_only %}
       <strong class="receipt-editor-total">Summe: <span data-receipt-total aria-live="polite">0,00 €</span></strong>
-      <button class="button secondary" type="button" data-add-row>
-        {% include "includes/icon.html" with name="plus" %}
-        Zeile hinzufügen
-      </button>
     {% endif %}
     </div>
   </div>
@@ -116,7 +112,7 @@
               {% endif %}
             </button>
           {% else %}
-            <button class="button secondary small" type="button" data-remove-row>
+            <button class="button danger small" type="button" data-remove-row>
               {% include "includes/icon.html" with name="x" %}
               Zeile entfernen
             </button>
@@ -190,7 +186,7 @@
       <input type="hidden" name="item-__index__-id" value="">
       <div class="item-row-head">
         <strong>Neue Artikelzeile</strong>
-        <button class="button secondary small" type="button" data-remove-row>
+        <button class="button danger small" type="button" data-remove-row>
           {% include "includes/icon.html" with name="x" %}
           Zeile entfernen
         </button>
@@ -242,15 +238,23 @@
   </template>
   {% endif %}
 
-  <div class="form-actions">
-    <button class="button primary" type="submit" {% if not import_review %}data-dirty-submit disabled{% endif %}>
-      {% include "includes/icon.html" with name="save" %}
-      {{ submit_label }}
-    </button>
-    <a class="button secondary" href="{% if import_review %}{% url 'receipts:import' %}{% else %}{% url 'receipts:receipt_list' %}{% endif %}">
-      {% include "includes/icon.html" with name="x" %}
-      Abbrechen
-    </a>
+  <div class="form-actions receipt-form-footer">
+    {% if not item_only %}
+      <button class="button secondary" type="button" data-add-row>
+        {% include "includes/icon.html" with name="plus" %}
+        Zeile hinzufügen
+      </button>
+    {% endif %}
+    <div class="receipt-submit-actions"{% if not item_only %} data-form-actions-bottom hidden{% endif %}>
+      <button class="button primary" type="submit" {% if not import_review %}data-dirty-submit disabled{% endif %}>
+        {% include "includes/icon.html" with name="save" %}
+        {{ submit_label }}
+      </button>
+      <a class="button secondary" href="{% if import_review %}{% url 'receipts:import' %}{% else %}{% url 'receipts:receipt_list' %}{% endif %}">
+        {% include "includes/icon.html" with name="x" %}
+        Abbrechen
+      </a>
+    </div>
   </div>
 </form>
 {% endblock %}

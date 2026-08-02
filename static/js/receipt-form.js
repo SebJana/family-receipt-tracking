@@ -315,6 +315,31 @@ function bindAllocationControls(root) {
   });
 }
 
+function bindReceiptActionLocations() {
+  const topActions = document.querySelector("[data-form-actions-top]");
+  const bottomActions = document.querySelector("[data-form-actions-bottom]");
+  if (!bottomActions) return;
+  if (!topActions) {
+    bottomActions.hidden = false;
+    return;
+  }
+
+  const setBottomVisibility = () => {
+    const rect = topActions.getBoundingClientRect();
+    const topIsVisible = rect.bottom > 0 && rect.top < window.innerHeight;
+    bottomActions.hidden = topIsVisible;
+  };
+
+  if ("IntersectionObserver" in window) {
+    const observer = new IntersectionObserver(setBottomVisibility, { threshold: 0 });
+    observer.observe(topActions);
+  } else {
+    window.addEventListener("scroll", setBottomVisibility, { passive: true });
+    window.addEventListener("resize", setBottomVisibility);
+  }
+  setBottomVisibility();
+}
+
 function bindDynamicRows() {
   const form = document.querySelector("[data-row-form]");
   if (!form) return;

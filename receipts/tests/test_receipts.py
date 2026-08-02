@@ -66,6 +66,29 @@ class ReceiptViewTests(ReceiptTestCase):
         self.assertNotContains(response, "data-allocation-total")
         self.assertContains(response, "data-receipt-total", count=1)
 
+    def test_new_receipt_add_row_button_is_below_the_last_item_row(self):
+        response = self.client.get(reverse("receipts:receipt_create"))
+        content = response.content.decode()
+
+        row_position = content.index("Artikelzeile 1")
+        add_button_position = content.index("data-add-row")
+        template_position = content.index("<template data-row-template>")
+        self.assertLess(row_position, add_button_position)
+        self.assertLess(template_position, add_button_position)
+        self.assertContains(response, 'class="form-actions receipt-form-footer"')
+        self.assertContains(response, 'class="receipt-submit-actions"')
+        self.assertContains(
+            response,
+            'class="button danger small" type="button" data-remove-row',
+            count=2,
+        )
+
+    def test_new_receipt_has_switching_top_and_bottom_action_locations(self):
+        response = self.client.get(reverse("receipts:receipt_create"))
+
+        self.assertContains(response, "data-form-actions-top", count=1)
+        self.assertContains(response, "data-form-actions-bottom hidden", count=1)
+
     def test_sonstiges_can_be_reiconed_but_not_renamed(self):
         self.client.get(reverse("receipts:categories"))
         category = Category.objects.get(name="Sonstiges")

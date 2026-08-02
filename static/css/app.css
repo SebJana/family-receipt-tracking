@@ -1000,6 +1000,24 @@ textarea {
   margin-top: 18px;
 }
 
+.receipt-form-footer {
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.receipt-submit-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  order: 1;
+}
+
+.receipt-form-footer > [data-add-row] {
+  margin-left: auto;
+  order: 2;
+}
+
 .messages {
   display: grid;
   gap: 8px;
@@ -1674,6 +1692,20 @@ th {
   .page-actions,
   .form-actions {
     width: 100%;
+  }
+
+  .receipt-form-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .receipt-form-footer > [data-add-row] {
+    margin-left: 0;
+    order: 1;
+  }
+
+  .receipt-submit-actions {
+    order: 2;
   }
 
   .receipt-actions {

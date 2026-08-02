@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindLiveFilters();
   bindAllocationControls(document);
   bindDynamicRows();
+  bindReceiptActionLocations();
   bindReceiptTotal();
   bindMarketComboboxes();
   bindRowActions(document);
