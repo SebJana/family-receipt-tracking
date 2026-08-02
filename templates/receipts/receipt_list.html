@@ -54,9 +54,7 @@
       {% endfor %}
     </select>
   </label>
-  <label>Artikel
-    <input name="article" value="{{ filters.article }}" placeholder="Teil des Artikelnamens">
-  </label>
+  {% include "includes/search_field.html" with id="receipt-filter-article" name="article" label="Artikelsuche" value=filters.article placeholder="Artikel suchen …" clear_label="Artikelfilter löschen" %}
 </form>
 
 <div id="receipt-list-content">

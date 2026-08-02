@@ -1,5 +1,5 @@
-function bindConfirmForms() {
-  document.querySelectorAll("form[data-confirm]").forEach((form) => {
+function bindConfirmForms(root = document) {
+  root.querySelectorAll("form[data-confirm]").forEach((form) => {
     form.addEventListener("submit", (event) => {
       if (!window.confirm(form.dataset.confirm)) {
         event.preventDefault();
@@ -8,7 +8,26 @@ function bindConfirmForms() {
   });
 }
 
-function bindFormActionStates() {
+function bindSearchClearFields(root = document) {
+  root.querySelectorAll("[data-search-field]").forEach((field) => {
+    if (field.dataset.searchFieldBound === "true") return;
+    field.dataset.searchFieldBound = "true";
+    const input = field.querySelector("input[type='search']");
+    const clearButton = field.querySelector("[data-search-clear]");
+    const updateClearButton = () => {
+      if (clearButton) clearButton.hidden = !input?.value;
+    };
+    input?.addEventListener("input", updateClearButton);
+    clearButton?.addEventListener("click", () => {
+      input.value = "";
+      updateClearButton();
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.focus();
+    });
+  });
+}
+
+function bindFormActionStates(root = document) {
   const isBlankNewRow = (row) => {
     const id = row.querySelector('input[name$="-id"]')?.value.trim();
     if (id) return false;
@@ -57,10 +76,10 @@ function bindFormActionStates() {
     return String(control.value || "").trim() !== "";
   });
 
-  const stateButtons = (form, selector) => Array.from(document.querySelectorAll(selector))
+  const stateButtons = (form, selector) => Array.from(root.querySelectorAll(selector))
     .filter((button) => button.form === form);
 
-  document.querySelectorAll("form[data-dirty-form]").forEach((form) => {
+  root.querySelectorAll("form[data-dirty-form]").forEach((form) => {
     const initialState = formState(form);
     const buttons = stateButtons(form, "[data-dirty-submit]");
     const update = () => {
@@ -79,7 +98,7 @@ function bindFormActionStates() {
     update();
   });
 
-  document.querySelectorAll("form[data-content-form]").forEach((form) => {
+  root.querySelectorAll("form[data-content-form]").forEach((form) => {
     const buttons = stateButtons(form, "[data-state-submit]");
     const update = () => {
       const available = hasMeaningfulContent(form) && form.checkValidity();

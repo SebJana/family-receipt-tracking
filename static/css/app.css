@@ -61,6 +61,16 @@ a {
 .category-item small, .category-assigned-item small { color: var(--muted); }
 .category-item.dragging { opacity: .45; }
 .category-board { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.category-filters { margin-bottom: 14px; }
+.category-filter-empty { grid-column: 1 / -1; }
+.search-field-label { display: grid; gap: 5px; }
+.filter-clear-field { display: block; position: relative; }
+.filter-clear-field input { padding-left: 38px; padding-right: 38px; width: 100%; }
+.filter-clear-field input::-webkit-search-cancel-button { display: none; }
+.filter-search-icon { align-items: center; bottom: 0; color: var(--muted); display: flex; left: 11px; pointer-events: none; position: absolute; top: 0; }
+.filter-search-icon .icon { height: 17px; width: 17px; }
+.filter-clear-button { align-items: center; background: transparent; border: 0; border-radius: 50%; color: var(--muted); cursor: pointer; display: flex; font-size: 22px; height: 30px; justify-content: center; padding: 0; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; }
+.filter-clear-button:hover { background: var(--soft); color: var(--text); }
 .category-card-head, .category-assigned-item { align-items: center; display: flex; justify-content: space-between; gap: 10px; }
 .category-card-actions { align-items: center; display: flex; gap: 8px; }
 .category-card-actions form { margin: 0; }
@@ -104,7 +114,8 @@ a {
 .category-dialog-head h3 { font-size: 22px; margin: 0; }
 .category-dialog-head p { color: var(--muted); margin: 4px 0 0; }
 .dialog-close { background: var(--soft); border: 0; border-radius: 999px; cursor: pointer; flex: 0 0 auto; font-size: 24px; height: 36px; line-height: 1; width: 36px; }
-.category-item-search { flex: 0 0 auto; margin: 18px 0 8px; min-height: 44px; padding: 9px 12px; width: 100%; }
+.category-item-search { flex: 0 0 auto; margin: 18px 0 8px; }
+.category-item-search input { min-height: 44px; }
 .category-items-dialog .category-contents { margin-top: 0; overflow-y: auto; padding-right: 3px; }
 .category-items-dialog .category-assigned-item { min-height: 48px; }
 .assignment-game { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; margin: 30px auto; max-width: 760px; padding: 34px; text-align: center; }

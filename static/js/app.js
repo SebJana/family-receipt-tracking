@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindAvatarDialogs();
   bindCharts();
   bindCategoryAssignmentPage();
+  bindSearchClearFields();
   bindFormActionStates();
 });
 document.addEventListener("click", (event) => {
@@ -30,4 +31,10 @@ document.addEventListener("keydown", (event) => {
   if (!row) return;
   event.preventDefault();
   window.location.href = row.dataset.href;
+});
+
+document.addEventListener("livefilter:update", (event) => {
+  bindConfirmForms(event.target);
+  bindSearchClearFields(event.target);
+  bindFormActionStates(event.target);
 });

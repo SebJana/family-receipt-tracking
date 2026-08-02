@@ -148,14 +148,29 @@ def categories(request):
             else:
                 category.delete()
                 messages.success(request, "Kategorie wurde gelöscht; ihre Artikel sind wieder offen.")
-        return redirect("receipts:categories")
+        redirect_url = request.path
+        if request.GET:
+            redirect_url = f"{redirect_url}?{request.GET.urlencode()}"
+        return redirect(redirect_url)
 
+    article_filter = request.GET.get("article", "").strip()
     category_list = list(Category.objects.all())
     for category in category_list:
         category.grouped_items = list(
             ReceiptItem.objects.filter(category=category)
             .values("article").annotate(count=Count("id")).order_by("article")
         )
+    filtered_categories = category_list
+    if article_filter:
+        matching_category_ids = set(
+            ReceiptItem.objects.filter(
+                category__isnull=False, article__icontains=article_filter
+            ).values_list("category_id", flat=True)
+        )
+        filtered_categories = [
+            category for category in category_list
+            if category.id in matching_category_ids
+        ]
     unassigned = list(
         ReceiptItem.objects.filter(category__isnull=True)
         .values("article").annotate(count=Count("id")).order_by("article")
@@ -163,6 +178,8 @@ def categories(request):
     random_item = ReceiptItem.objects.filter(category__isnull=True).values("article").distinct().order_by("?").first()
     return render(request, "receipts/categories.html", {
         "categories": category_list,
+        "filtered_categories": filtered_categories,
+        "filters": {"article": article_filter},
         "unassigned": unassigned,
         "unassigned_count": len(unassigned),
         "random_item": random_item,

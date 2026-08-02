@@ -175,6 +175,10 @@ function bindLiveFilters() {
         currentTarget.innerHTML = newTarget.innerHTML;
         window.htmx?.process(currentTarget);
         window.history.replaceState({}, "", url);
+        currentTarget.dispatchEvent(new CustomEvent("livefilter:update", {
+          bubbles: true,
+          detail: { url },
+        }));
       } catch (error) {
         if (error.name !== "AbortError") window.location.assign(url);
       }
@@ -184,7 +188,7 @@ function bindLiveFilters() {
       control.addEventListener("change", updateResults);
     });
 
-    form.querySelectorAll("input[type='text'], input:not([type])").forEach((control) => {
+    form.querySelectorAll("input[type='text'], input[type='search'], input:not([type])").forEach((control) => {
       control.addEventListener("input", () => {
         window.clearTimeout(typingTimer);
         typingTimer = window.setTimeout(updateResults, 350);

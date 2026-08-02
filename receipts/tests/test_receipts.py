@@ -100,6 +100,13 @@ class ReceiptViewTests(ReceiptTestCase):
         self.assertContains(response, 'Große KAF<mark class="search-highlight">FEEDo</mark>se')
         self.assertNotContains(response, "Tee")
         self.assertNotContains(response, "Filter anwenden")
+        self.assertContains(response, "Artikelsuche")
+        self.assertContains(
+            response,
+            'id="receipt-filter-article" type="search" name="article" value="feeDo"',
+        )
+        self.assertContains(response, 'href="#icon-search"')
+        self.assertContains(response, 'data-search-clear aria-label="Artikelfilter löschen"')
         self.assertContains(response, f'href="#receipt-{matching_receipt.id}"')
         self.assertContains(response, "person-avatar-small")
 

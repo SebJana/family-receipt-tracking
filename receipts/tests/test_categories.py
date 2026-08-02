@@ -36,6 +36,52 @@ from .base import ReceiptTestCase
 
 
 class CategoryViewTests(ReceiptTestCase):
+    def test_article_filter_shows_matching_categories_and_prefills_inner_filter(self):
+        buyer = Person.objects.get(name="Person 1")
+        fruit = Category.objects.create(name="Obst", emoji="🍎")
+        vegetables = Category.objects.create(name="Gemüse", emoji="🥦")
+        receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)
+        ReceiptItem.objects.create(
+            receipt=receipt, article="Green Apple", quantity=1,
+            total_price_cents=100, category=fruit,
+        )
+        ReceiptItem.objects.create(
+            receipt=receipt, article="Banana", quantity=1,
+            total_price_cents=100, category=fruit,
+        )
+        ReceiptItem.objects.create(
+            receipt=receipt, article="Broccoli", quantity=1,
+            total_price_cents=100, category=vegetables,
+        )
+
+        response = self.client.get(
+            reverse("receipts:categories"), {"article": "apple"}
+        )
+
+        self.assertContains(response, "Artikelsuche")
+        self.assertContains(response, 'type="search" name="article" value="apple"')
+        self.assertContains(response, 'href="#icon-search"')
+        self.assertContains(response, "data-search-clear")
+        self.assertNotContains(
+            response,
+            "data-search-clear aria-label=\"Artikelfilter löschen\" hidden",
+        )
+        self.assertContains(response, f'data-category-id="{fruit.id}"')
+        self.assertNotContains(response, f'data-category-id="{vegetables.id}"')
+        self.assertContains(
+            response,
+            'type="search" value="apple" placeholder="Artikel suchen …" aria-label="Artikel in Obst suchen" data-category-item-search',
+        )
+        self.assertContains(response, 'data-article="Banana"')
+
+    def test_empty_article_filter_hides_clear_button(self):
+        response = self.client.get(reverse("receipts:categories"))
+
+        self.assertContains(
+            response,
+            'data-search-clear aria-label="Artikelfilter löschen" hidden',
+        )
+
     def test_category_skip_changes_item_without_assigning_or_clearing_undo_state(self):
         buyer = Person.objects.get(name="Person 1")
         receipt = Receipt.objects.create(date="2026-07-03", market="A", buyer=buyer)

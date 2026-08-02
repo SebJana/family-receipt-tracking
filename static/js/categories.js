@@ -103,64 +103,72 @@ function bindCategoryAssignmentPage() {
     picker.querySelector("[data-emoji-no-results]").hidden = visible !== 0;
   });
 
-  document.querySelectorAll("[data-category-edit-open]").forEach((button) => button.addEventListener("click", () => {
-    document.getElementById(button.dataset.categoryEditOpen)?.showModal();
-  }));
-  document.querySelectorAll(".category-edit-dialog").forEach((dialog) => {
-    const symbolInput = dialog.querySelector("[data-edit-category-symbol]");
-    const editPicker = dialog.querySelector("[data-edit-emoji-picker]");
-    dialog.querySelectorAll("[data-category-edit-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
-    dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
-    const openEditEmojiPicker = () => {
-      editPicker.hidden = false;
-      window.requestAnimationFrame(() => editPicker.querySelector("[data-edit-emoji-search]")?.focus());
-    };
-    dialog.querySelector("[data-edit-emoji-toggle]")?.addEventListener("click", () => {
-      if (editPicker.hidden) openEditEmojiPicker(); else editPicker.hidden = true;
+  function applyCategoryItemFilter(dialog) {
+    const query = dialog.querySelector("[data-category-item-search]").value.trim().toLocaleLowerCase("de");
+    let visible = 0;
+    dialog.querySelectorAll(".category-assigned-item").forEach((row) => {
+      const matches = !query || row.dataset.article.toLocaleLowerCase("de").includes(query);
+      row.hidden = !matches;
+      if (matches) visible += 1;
     });
-    symbolInput?.addEventListener("click", openEditEmojiPicker);
-    symbolInput?.addEventListener("input", () => {
-      const graphemes = segmenter ? [...segmenter.segment(symbolInput.value)].map((part) => part.segment) : Array.from(symbolInput.value);
-      let symbol = graphemes[0] || "";
-      if (/^\p{L}$/u.test(symbol)) symbol = symbol.toLocaleUpperCase("de");
-      const valid = /^\p{Lu}$/u.test(symbol) || /\p{Extended_Pictographic}/u.test(symbol) || /^\p{Regional_Indicator}{2}$/u.test(symbol);
-      symbolInput.value = valid ? symbol : "";
-    });
-    editPicker.querySelectorAll("[data-keywords]").forEach((button) => button.addEventListener("click", () => {
-      symbolInput.value = button.textContent.trim(); editPicker.hidden = true; symbolInput.focus();
-    }));
-    editPicker.querySelector("[data-edit-emoji-search]")?.addEventListener("input", (event) => {
-      const query = event.target.value.trim().toLocaleLowerCase("de");
-      let visible = 0;
-      editPicker.querySelectorAll("[data-keywords]").forEach((button) => {
-        const matches = !query || button.dataset.keywords.toLocaleLowerCase("de").includes(query);
-        button.hidden = !matches;
-        if (matches) visible += 1;
-      });
-      editPicker.querySelector("[data-edit-emoji-no-results]").hidden = visible !== 0;
-    });
-    document.addEventListener("click", (event) => {
-      if (!event.target.closest(".edit-emoji-field")) editPicker.hidden = true;
-    });
-  });
+    dialog.querySelector("[data-category-search-empty]").hidden = visible !== 0 || !query;
+  }
 
-  document.querySelectorAll("[data-category-items-open]").forEach((button) => button.addEventListener("click", () => {
-    document.getElementById(button.dataset.categoryItemsOpen)?.showModal();
-  }));
-  document.querySelectorAll(".category-items-dialog").forEach((dialog) => {
-    dialog.querySelector("[data-category-items-close]")?.addEventListener("click", () => dialog.close());
-    dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
-    dialog.querySelector("[data-category-item-search]")?.addEventListener("input", (event) => {
-      const query = event.target.value.trim().toLocaleLowerCase("de");
-      let visible = 0;
-      dialog.querySelectorAll(".category-assigned-item").forEach((row) => {
-        const matches = !query || row.dataset.article.toLocaleLowerCase("de").includes(query);
-        row.hidden = !matches;
-        if (matches) visible += 1;
+  function bindCategoryManagement(root) {
+    root.querySelectorAll("[data-category-edit-open]").forEach((button) => button.addEventListener("click", () => {
+      document.getElementById(button.dataset.categoryEditOpen)?.showModal();
+    }));
+    root.querySelectorAll(".category-edit-dialog").forEach((dialog) => {
+      const symbolInput = dialog.querySelector("[data-edit-category-symbol]");
+      const editPicker = dialog.querySelector("[data-edit-emoji-picker]");
+      dialog.querySelectorAll("[data-category-edit-close]").forEach((button) => button.addEventListener("click", () => dialog.close()));
+      dialog.addEventListener("click", (event) => {
+        if (event.target === dialog) dialog.close();
+        if (!event.target.closest(".edit-emoji-field")) editPicker.hidden = true;
       });
-      dialog.querySelector("[data-category-search-empty]").hidden = visible !== 0 || !query;
+      const openEditEmojiPicker = () => {
+        editPicker.hidden = false;
+        window.requestAnimationFrame(() => editPicker.querySelector("[data-edit-emoji-search]")?.focus());
+      };
+      dialog.querySelector("[data-edit-emoji-toggle]")?.addEventListener("click", () => {
+        if (editPicker.hidden) openEditEmojiPicker(); else editPicker.hidden = true;
+      });
+      symbolInput?.addEventListener("click", openEditEmojiPicker);
+      symbolInput?.addEventListener("input", () => {
+        const graphemes = segmenter ? [...segmenter.segment(symbolInput.value)].map((part) => part.segment) : Array.from(symbolInput.value);
+        let symbol = graphemes[0] || "";
+        if (/^\p{L}$/u.test(symbol)) symbol = symbol.toLocaleUpperCase("de");
+        const valid = /^\p{Lu}$/u.test(symbol) || /\p{Extended_Pictographic}/u.test(symbol) || /^\p{Regional_Indicator}{2}$/u.test(symbol);
+        symbolInput.value = valid ? symbol : "";
+      });
+      editPicker.querySelectorAll("[data-keywords]").forEach((button) => button.addEventListener("click", () => {
+        symbolInput.value = button.textContent.trim(); editPicker.hidden = true; symbolInput.focus();
+      }));
+      editPicker.querySelector("[data-edit-emoji-search]")?.addEventListener("input", (event) => {
+        const query = event.target.value.trim().toLocaleLowerCase("de");
+        let visible = 0;
+        editPicker.querySelectorAll("[data-keywords]").forEach((button) => {
+          const matches = !query || button.dataset.keywords.toLocaleLowerCase("de").includes(query);
+          button.hidden = !matches;
+          if (matches) visible += 1;
+        });
+        editPicker.querySelector("[data-edit-emoji-no-results]").hidden = visible !== 0;
+      });
     });
-  });
+
+    root.querySelectorAll("[data-category-items-open]").forEach((button) => button.addEventListener("click", () => {
+      const dialog = document.getElementById(button.dataset.categoryItemsOpen);
+      if (!dialog) return;
+      applyCategoryItemFilter(dialog);
+      dialog.showModal();
+    }));
+    root.querySelectorAll(".category-items-dialog").forEach((dialog) => {
+      dialog.querySelector("[data-category-items-close]")?.addEventListener("click", () => dialog.close());
+      dialog.addEventListener("click", (event) => { if (event.target === dialog) dialog.close(); });
+      dialog.querySelector("[data-category-item-search]")?.addEventListener("input", () => applyCategoryItemFilter(dialog));
+    });
+    root.querySelectorAll(".category-assigned-item").forEach(bindCategoryClear);
+  }
 
   const game = document.querySelector("[data-category-game]");
   const undoButton = game?.querySelector("[data-assignment-undo]");
@@ -289,5 +297,10 @@ function bindCategoryAssignmentPage() {
     } catch (error) { window.alert(error.message); }
     finally { undoButton.disabled = false; }
   });
-  document.querySelectorAll(".category-assigned-item").forEach(bindCategoryClear);
+  bindCategoryManagement(document);
+  document.addEventListener("livefilter:update", (event) => {
+    if (event.target.matches("#category-list-content")) {
+      bindCategoryManagement(event.target);
+    }
+  });
 }
